@@ -1,0 +1,15 @@
+<nav class="navbar">
+    <a href="/" class="navbar-brand">
+        <div class="navbar-brand-title">AKTIS PARSER</div>
+        <div class="navbar-brand-subtitle">DATA COLLECTION SERVICE</div>
+    </a>
+    <div class="navbar-menu">
+        <a href="/" class="navbar-link{{if eq .Page "home"}} active{{end}}">HOME</a>
+        <a href="/jira" class="navbar-link{{if eq .Page "jira"}} active{{end}}">JIRA DATA</a>
+        <a href="/confluence" class="navbar-link{{if eq .Page "confluence"}} active{{end}}">CONFLUENCE DATA</a>
+    </div>
+    <div class="navbar-status">
+        <div class="status-indicator"></div>
+        <span class="status-text">ONLINE</span>
+    </div>
+</nav>

@@ -93,3 +93,28 @@ func (ad *AuthData) GetHTTPCookies() []*http.Cookie {
 	}
 	return cookies
 }
+
+// LoggingService interface defines methods for application logging
+type LoggingService interface {
+	// Core logging methods
+	Debug(message string)
+	Info(message string)
+	Warn(message string)
+	Error(message string, err error)
+
+	// Structured logging with fields
+	WithField(key string, value interface{}) LogEntry
+	WithFields(fields map[string]interface{}) LogEntry
+
+	// UI broadcast
+	BroadcastToUI(level, message string)
+}
+
+// LogEntry represents a chainable log entry
+type LogEntry interface {
+	Debug(message string)
+	Info(message string)
+	Warn(message string)
+	Error(message string, err error)
+	Msg(message string)
+}

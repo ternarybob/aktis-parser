@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/bobmc/aktis-parser/internal/common"
+	"aktis-parser/internal/common"
 	"github.com/ternarybob/arbor"
 )
 
@@ -49,16 +49,6 @@ func (h *UIHandler) IndexHandler(w http.ResponseWriter, r *http.Request) {
 
 	indexPath := filepath.Join(h.staticDir, "index.html")
 	http.ServeFile(w, r, indexPath)
-}
-
-// FaviconHandler serves the favicon
-func (h *UIHandler) FaviconHandler(w http.ResponseWriter, r *http.Request) {
-	faviconPath := filepath.Join(h.staticDir, "favicon.ico")
-	if _, err := os.Stat(faviconPath); os.IsNotExist(err) {
-		http.NotFound(w, r)
-		return
-	}
-	http.ServeFile(w, r, faviconPath)
 }
 
 // StatusHandler returns HTML for service status
@@ -121,4 +111,41 @@ func (h *UIHandler) JiraPageHandler(w http.ResponseWriter, r *http.Request) {
 func (h *UIHandler) ConfluencePageHandler(w http.ResponseWriter, r *http.Request) {
 	confluencePath := filepath.Join(h.staticDir, "confluence.html")
 	http.ServeFile(w, r, confluencePath)
+}
+
+// StaticFileHandler serves static files (CSS, favicon) from the pages/static directory
+func (h *UIHandler) StaticFileHandler(w http.ResponseWriter, r *http.Request) {
+	// List of allowed static files
+	allowedFiles := map[string]string{
+		"/static/common.css": "static/common.css",
+		"/favicon.ico":       "favicon.ico",
+	}
+
+	// Check if the requested path is allowed
+	relativePath, allowed := allowedFiles[r.URL.Path]
+	if !allowed {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Construct the full path
+	filePath := filepath.Join(h.staticDir, relativePath)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Set appropriate content type
+	ext := filepath.Ext(filePath)
+	switch ext {
+	case ".css":
+		w.Header().Set("Content-Type", "text/css")
+	case ".ico":
+		w.Header().Set("Content-Type", "image/x-icon")
+	}
+
+	// Serve the file
+	http.ServeFile(w, r, filePath)
 }

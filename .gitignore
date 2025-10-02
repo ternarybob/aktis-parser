@@ -16,6 +16,7 @@ temp
 # Tests & Output
 *.test
 tests/results
+*.log
 
 # Go workspace file
 go.work

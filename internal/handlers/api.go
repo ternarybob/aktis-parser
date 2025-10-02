@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/bobmc/aktis-parser/internal/common"
+	"aktis-parser/internal/common"
 	"github.com/ternarybob/arbor"
 )
 

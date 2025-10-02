@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bobmc/aktis-parser/internal/common"
-	"github.com/bobmc/aktis-parser/internal/interfaces"
+	"aktis-parser/internal/common"
+	"aktis-parser/internal/interfaces"
 	"github.com/gorilla/websocket"
 	"github.com/ternarybob/arbor"
 )

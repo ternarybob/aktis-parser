@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/bobmc/aktis-parser/internal/common"
-	"github.com/bobmc/aktis-parser/internal/handlers"
-	"github.com/bobmc/aktis-parser/internal/scraper"
+	"aktis-parser/internal/common"
+	"aktis-parser/internal/handlers"
+	"aktis-parser/internal/services"
 )
 
 func main() {
@@ -39,28 +39,28 @@ func main() {
 		serviceURL,
 	)
 
-	// 4. Initialize Jira scraper
-	jiraScraper, err := scraper.NewJiraScraper(config.Storage.DatabasePath, logger)
+	// 4. Initialize Jira service
+	jiraService, err := services.NewJiraScraper(config.Storage.DatabasePath, logger)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to initialize Jira scraper")
+		logger.Fatal().Err(err).Msg("Failed to initialize Jira service")
 	}
-	defer jiraScraper.Close()
+	defer jiraService.Close()
 
 	// 5. Initialize handlers
 	apiHandler := handlers.NewAPIHandler()
 	uiHandler := handlers.NewUIHandler()
 	wsHandler := handlers.NewWebSocketHandler()
-	scraperHandler := handlers.NewScraperHandler(jiraScraper, wsHandler)
-	dataHandler := handlers.NewDataHandler(jiraScraper)
+	scraperHandler := handlers.NewScraperHandler(jiraService, wsHandler)
+	dataHandler := handlers.NewDataHandler(jiraService)
 
-	// Set UI logger for scraper
-	jiraScraper.SetUILogger(wsHandler)
+	// Set UI logger for service
+	jiraService.SetUILogger(wsHandler)
 
 	// Set auth loader for WebSocket handler (so it can send auth on connect)
-	wsHandler.SetAuthLoader(jiraScraper)
+	wsHandler.SetAuthLoader(jiraService)
 
 	// Load stored authentication if available (just to log status)
-	if _, err := jiraScraper.LoadAuth(); err == nil {
+	if _, err := jiraService.LoadAuth(); err == nil {
 		logger.Info().Msg("Loaded stored authentication from database")
 	} else {
 		logger.Debug().Err(err).Msg("No stored authentication found")
@@ -75,7 +75,8 @@ func main() {
 	http.HandleFunc("/", uiHandler.IndexHandler)
 	http.HandleFunc("/jira", uiHandler.JiraPageHandler)
 	http.HandleFunc("/confluence", uiHandler.ConfluencePageHandler)
-	http.HandleFunc("/favicon.ico", uiHandler.FaviconHandler)
+	http.HandleFunc("/static/common.css", uiHandler.StaticFileHandler)
+	http.HandleFunc("/favicon.ico", uiHandler.StaticFileHandler)
 	http.HandleFunc("/status", uiHandler.StatusHandler)
 	http.HandleFunc("/parser-status", uiHandler.ParserStatusHandler)
 
@@ -87,7 +88,11 @@ func main() {
 	http.HandleFunc("/api/scrape", scraperHandler.ScrapeHandler)
 	http.HandleFunc("/api/scrape/projects", scraperHandler.ScrapeProjectsHandler)
 	http.HandleFunc("/api/scrape/spaces", scraperHandler.ScrapeSpacesHandler)
+	http.HandleFunc("/api/projects/refresh-cache", scraperHandler.RefreshProjectsCacheHandler)
+	http.HandleFunc("/api/projects/get-issues", scraperHandler.GetProjectIssuesHandler)
+	http.HandleFunc("/api/data/clear-all", scraperHandler.ClearAllDataHandler)
 	http.HandleFunc("/api/data/jira", dataHandler.GetJiraDataHandler)
+	http.HandleFunc("/api/data/jira/issues", dataHandler.GetJiraIssuesHandler)
 	http.HandleFunc("/api/data/confluence", dataHandler.GetConfluenceDataHandler)
 	http.HandleFunc("/api/version", apiHandler.VersionHandler)
 	http.HandleFunc("/api/health", apiHandler.HealthHandler)

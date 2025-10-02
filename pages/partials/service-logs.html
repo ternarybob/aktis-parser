@@ -1,0 +1,137 @@
+<!-- Service Logs Sidebar -->
+<div class="terminal-section">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <div class="terminal-header" style="margin-bottom: 0;">Service Logs</div>
+        <button class="btn-clear-logs" onclick="clearServiceLogs()">Clear</button>
+    </div>
+    <div id="service-logs" class="service-logs-container"></div>
+</div>
+
+<script>
+    // WebSocket connection for service logs
+    let ws;
+    let reconnectInterval;
+    let displayedLogs = new Set();
+
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = function() {
+            console.log('WebSocket connected');
+            updateSystemStatus(true);
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+                reconnectInterval = null;
+            }
+        };
+
+        ws.onmessage = function(event) {
+            const message = JSON.parse(event.data);
+            if (message.type === 'log') {
+                handleLogMessage(message.payload);
+            }
+        };
+
+        ws.onerror = function(error) {
+            console.error('WebSocket error:', error);
+            updateSystemStatus(false);
+        };
+
+        ws.onclose = function() {
+            console.log('WebSocket disconnected');
+            updateSystemStatus(false);
+            if (!reconnectInterval) {
+                reconnectInterval = setInterval(connectWebSocket, 3000);
+            }
+        };
+    }
+
+    function updateSystemStatus(online) {
+        const statusIndicator = document.querySelector('.status-indicator');
+        const statusText = document.querySelector('.status-text');
+
+        if (statusIndicator && statusText) {
+            if (online) {
+                statusIndicator.style.background = '#00cc00';
+                statusText.style.color = '#00cc00';
+                statusText.textContent = 'ONLINE';
+            } else {
+                statusIndicator.style.background = '#cc0000';
+                statusText.style.color = '#cc0000';
+                statusText.textContent = 'OFFLINE';
+            }
+        }
+    }
+
+    function handleLogMessage(logData) {
+        const logsContainer = document.getElementById('service-logs');
+        if (!logsContainer) return;
+
+        const logLine = `${logData.timestamp}|${logData.level}|${logData.message}`;
+
+        if (displayedLogs.has(logLine)) return;
+        displayedLogs.add(logLine);
+
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
+
+        const timestamp = logData.timestamp || new Date().toLocaleTimeString('en-US', { hour12: false });
+        const level = logData.level || 'info';
+        const message = logData.message || '';
+
+        let levelClass = 'log-level-info';
+        let levelText = 'INFO';
+        if (level.toLowerCase() === 'error') {
+            levelClass = 'log-level-error';
+            levelText = 'ERROR';
+        } else if (level.toLowerCase() === 'warn') {
+            levelClass = 'log-level-warn';
+            levelText = 'WARN';
+        } else if (level.toLowerCase() === 'debug') {
+            levelClass = 'log-level-debug';
+            levelText = 'DEBUG';
+        }
+
+        logEntry.innerHTML = `
+            <span class="log-timestamp">[${timestamp}]</span>
+            <span class="${levelClass}">[${levelText}]</span>
+            <span class="log-message">${escapeHtml(message)}</span>
+        `;
+
+        logsContainer.appendChild(logEntry);
+        logsContainer.scrollTop = logsContainer.scrollHeight;
+
+        // Limit to last 100 entries
+        while (logsContainer.children.length > 100) {
+            const removed = logsContainer.removeChild(logsContainer.firstChild);
+            displayedLogs.delete(removed.textContent);
+        }
+    }
+
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function clearServiceLogs() {
+        const logsContainer = document.getElementById('service-logs');
+        if (logsContainer) {
+            logsContainer.innerHTML = '';
+            displayedLogs.clear();
+        }
+    }
+
+    // Connect on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        connectWebSocket();
+    });
+</script>

@@ -3,9 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
 
-	"github.com/bobmc/aktis-parser/internal/common"
-	"github.com/bobmc/aktis-parser/internal/interfaces"
+	"aktis-parser/internal/common"
+	"aktis-parser/internal/interfaces"
 	"github.com/ternarybob/arbor"
 )
 
@@ -133,4 +134,163 @@ func (h *ScraperHandler) ScrapeSpacesHandler(w http.ResponseWriter, r *http.Requ
 		"status":  "started",
 		"message": "Confluence spaces scraping started",
 	})
+}
+
+// RefreshProjectsCacheHandler clears projects cache and re-syncs from Jira
+func (h *ScraperHandler) RefreshProjectsCacheHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !h.scraper.IsAuthenticated() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "error",
+			"message": "Not authenticated. Please capture authentication first.",
+		})
+		return
+	}
+
+	// Type assertion to access ClearProjectsCache method
+	type projectCacheClearer interface {
+		ClearProjectsCache() error
+	}
+
+	// Clear cache synchronously first, so immediate API calls won't see old data
+	if clearer, ok := h.scraper.(projectCacheClearer); ok {
+		if err := clearer.ClearProjectsCache(); err != nil {
+			h.logger.Error().Err(err).Msg("Failed to clear projects cache")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "error",
+				"message": "Failed to clear projects cache",
+			})
+			return
+		}
+	}
+
+	// Re-sync projects in background
+	go func() {
+		if err := h.scraper.ScrapeProjects(); err != nil {
+			h.logger.Error().Err(err).Msg("Project scrape error after cache refresh")
+		}
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "started",
+		"message": "Projects cache refresh started",
+	})
+}
+
+// GetProjectIssuesHandler fetches issues for selected projects
+func (h *ScraperHandler) GetProjectIssuesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !h.scraper.IsAuthenticated() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "error",
+			"message": "Not authenticated. Please capture authentication first.",
+		})
+		return
+	}
+
+	var request struct {
+		ProjectKeys []string `json:"projectKeys"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if len(request.ProjectKeys) == 0 {
+		http.Error(w, "No projects specified", http.StatusBadRequest)
+		return
+	}
+
+	// Type assertion to access GetProjectIssues method
+	type projectIssueGetter interface {
+		GetProjectIssues(projectKey string) error
+	}
+
+	// Fetch issues for each project in parallel using goroutines
+	go func() {
+		if getter, ok := h.scraper.(projectIssueGetter); ok {
+			var wg sync.WaitGroup
+
+			for _, projectKey := range request.ProjectKeys {
+				wg.Add(1)
+
+				// Launch goroutine for each project
+				go func(key string) {
+					defer wg.Done()
+
+					h.logger.Info().Str("project", key).Msg("Starting parallel fetch for project")
+
+					if err := getter.GetProjectIssues(key); err != nil {
+						h.logger.Error().Err(err).Str("project", key).Msg("Failed to get project issues")
+					} else {
+						h.logger.Info().Str("project", key).Msg("Completed parallel fetch for project")
+					}
+				}(projectKey)
+			}
+
+			// Wait for all projects to complete
+			wg.Wait()
+			h.logger.Info().Int("projectCount", len(request.ProjectKeys)).Msg("Completed fetching all projects")
+		}
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "started",
+		"message": "Fetching issues for selected projects",
+	})
+}
+
+// ClearAllDataHandler clears all cached data from the database
+func (h *ScraperHandler) ClearAllDataHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	h.logger.Info().Msg("Clearing all data from database")
+
+	// Type assertion to access ClearAllData method
+	type dataClearer interface {
+		ClearAllData() error
+	}
+
+	if clearer, ok := h.scraper.(dataClearer); ok {
+		if err := clearer.ClearAllData(); err != nil {
+			h.logger.Error().Err(err).Msg("Failed to clear data")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "error",
+				"message": "Failed to clear data",
+			})
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "success",
+			"message": "All data cleared successfully",
+		})
+	} else {
+		http.Error(w, "Clear data not supported", http.StatusNotImplemented)
+	}
 }

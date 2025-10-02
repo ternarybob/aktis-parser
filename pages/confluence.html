@@ -4,204 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Confluence Data - Aktis Parser</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/static/common.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            background: #ffffff;
-            color: #2a2a2a;
-            font-family: sans-serif;
-            font-weight: 400;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            overflow-x: hidden;
-            position: relative;
-            min-height: 100vh;
-        }
-
-        /* Top Navbar */
-        .navbar {
-            background: #ffffff;
-            border-bottom: 1px solid #e0e0e0;
-            padding: 0 40px;
-            height: 70px;
-            display: grid;
-            grid-template-columns: 1fr 2fr 1fr;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-
-        .navbar-brand {
-            color: #1a1a1a;
-            text-decoration: none;
-            font-family: monospace;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .navbar-brand-title {
-            font-size: 14px;
-            font-weight: 700;
-            letter-spacing: 3px;
-        }
-
-        .navbar-brand-subtitle {
-            font-size: 11px;
-            font-weight: 400;
-            letter-spacing: 1px;
-            color: #6a6a6a;
-            margin-top: 2px;
-        }
-
-        .navbar-menu {
-            display: flex;
-            gap: 40px;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .navbar-link {
-            font-size: 13px;
-            color: #6a6a6a;
-            text-decoration: none;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-            font-family: monospace;
-            transition: all 0.3s;
-            padding-bottom: 4px;
-            border-bottom: 2px solid transparent;
-        }
-
-        .navbar-link:hover {
-            color: #1a1a1a;
-        }
-
-        .navbar-link.active {
-            color: #1a1a1a;
-            border-bottom: 2px solid #27ae60;
-        }
-
-        .navbar-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            justify-content: flex-end;
-        }
-
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
+        .action-button {
             background: #27ae60;
         }
 
-        .status-text {
-            font-size: 12px;
-            font-family: monospace;
-            color: #6a6a6a;
-            letter-spacing: 1px;
-        }
-
-        /* Main Content */
-        .container {
-            max-width: 1400px;
-            margin: 40px auto;
-            padding: 0 40px;
-        }
-
-        .page-header {
-            margin-bottom: 40px;
-        }
-
-        .page-title {
-            font-size: 32px;
-            font-weight: 300;
-            letter-spacing: 2px;
-            color: #1a1a1a;
-            margin-bottom: 10px;
-        }
-
-        .page-subtitle {
-            font-size: 14px;
-            color: #6a6a6a;
-            font-family: monospace;
-        }
-
-        .data-section {
-            margin-bottom: 40px;
+        .action-button:hover {
+            background: #1e8449;
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
         }
 
         .section-header {
-            background: #f8f8f8;
-            padding: 20px;
-            border-left: 4px solid #27ae60;
-            margin-bottom: 20px;
+            border-left-color: #27ae60;
         }
 
-        .section-title {
-            font-size: 20px;
-            font-weight: 500;
-            color: #1a1a1a;
-            margin-bottom: 5px;
-        }
-
-        .section-count {
-            font-size: 14px;
-            font-family: monospace;
-            color: #6a6a6a;
-        }
-
-        .json-container {
-            background: #f6f8fa;
-            border: 1px solid #e1e4e8;
-            border-radius: 6px;
-            overflow: hidden;
-        }
-
-        pre {
-            margin: 0;
-            padding: 20px;
-            overflow-x: auto;
-        }
-
-        code {
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.6;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6a6a6a;
-            font-family: monospace;
-        }
-
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 20px;
-            border-radius: 6px;
-            border-left: 4px solid #dc3545;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #6a6a6a;
-            font-family: monospace;
-            background: #f8f8f8;
-            border-radius: 6px;
+        .navbar-link.active {
+            border-bottom-color: #27ae60;
         }
     </style>
 </head>
@@ -223,26 +46,186 @@
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <div class="container">
-        <div class="page-header">
-            <h1 class="page-title">Confluence Data</h1>
-            <p class="page-subtitle">Pages stored in local database</p>
+    <div class="main-container">
+        <!-- Content Area (60%) -->
+        <div class="content-area">
+            <!-- Hero Section -->
+            <div class="hero-section">
+                <h1 class="hero-title">Confluence Data Management</h1>
+                <p class="hero-subtitle">
+                    Scrape and manage Confluence spaces and pages from authenticated Atlassian instance
+                </p>
+            </div>
+
+            <!-- Confluence Management Section -->
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Confluence Spaces</div>
+                    </div>
+
+                    <!-- Capture Action -->
+                    <div style="padding: 20px; text-align: center;">
+                        <p style="font-family: monospace; font-size: 12px; color: #6a6a6a; margin-bottom: 20px;">
+                            Scrape Confluence spaces and pages from authenticated Atlassian instance
+                        </p>
+                        <button id="btn-capture-spaces" class="btn btn-primary" onclick="captureSpaces()">
+                            CAPTURE SPACES
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pages Display Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Pages</div>
+                        <div class="section-count" id="pages-count" style="font-family: monospace; font-size: 11px; color: #6a6a6a;">Loading...</div>
+                    </div>
+                    <div class="json-container">
+                        <pre><code id="pages-data" class="language-json">Loading...</code></pre>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Pages Section -->
-        <div class="data-section">
-            <div class="section-header">
-                <div class="section-title">Pages</div>
-                <div class="section-count" id="pages-count">Loading...</div>
-            </div>
-            <div class="json-container">
-                <pre><code id="pages-data" class="language-json">Loading...</code></pre>
+        <!-- Right Panel (40%) - Service Logs -->
+        <div class="right-panel">
+            <div class="terminal-section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div class="terminal-header" style="margin-bottom: 0;">Service Logs</div>
+                    <button class="btn-clear-logs" onclick="clearServiceLogs()">Clear</button>
+                </div>
+                <div id="service-logs" class="service-logs-container"></div>
             </div>
         </div>
     </div>
 
+    <!-- Footer -->
+    <div class="system-footer">
+        Aktis Parser // Confluence Data Management
+    </div>
+
     <script>
+        // WebSocket connection for service logs
+        let ws;
+        let reconnectInterval;
+        let displayedLogs = new Set();
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                console.log('WebSocket connected');
+                updateSystemStatus(true);
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+            };
+
+            ws.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                if (message.type === 'log') {
+                    handleLogMessage(message.payload);
+                }
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                updateSystemStatus(false);
+            };
+
+            ws.onclose = function() {
+                console.log('WebSocket disconnected');
+                updateSystemStatus(false);
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(connectWebSocket, 3000);
+                }
+            };
+        }
+
+        function updateSystemStatus(online) {
+            const statusIndicator = document.querySelector('.status-indicator');
+            const statusText = document.querySelector('.status-text');
+
+            if (online) {
+                statusIndicator.style.background = '#00cc00';
+                statusText.style.color = '#00cc00';
+                statusText.textContent = 'ONLINE';
+            } else {
+                statusIndicator.style.background = '#cc0000';
+                statusText.style.color = '#cc0000';
+                statusText.textContent = 'OFFLINE';
+            }
+        }
+
+        function handleLogMessage(logData) {
+            const logsContainer = document.getElementById('service-logs');
+            if (!logsContainer) return;
+
+            const logLine = `${logData.timestamp}|${logData.level}|${logData.message}`;
+
+            if (displayedLogs.has(logLine)) return;
+            displayedLogs.add(logLine);
+
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+
+            const timestamp = logData.timestamp || new Date().toLocaleTimeString('en-US', { hour12: false });
+            const level = logData.level || 'info';
+            const message = logData.message || '';
+
+            let levelClass = 'log-level-info';
+            let levelText = 'INFO';
+            if (level.toLowerCase() === 'error') {
+                levelClass = 'log-level-error';
+                levelText = 'ERROR';
+            } else if (level.toLowerCase() === 'warn') {
+                levelClass = 'log-level-warn';
+                levelText = 'WARN';
+            } else if (level.toLowerCase() === 'debug') {
+                levelClass = 'log-level-debug';
+                levelText = 'DEBUG';
+            }
+
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="${levelClass}">[${levelText}]</span>
+                <span class="log-message">${escapeHtml(message)}</span>
+            `;
+
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+
+            // Limit to last 100 entries
+            while (logsContainer.children.length > 100) {
+                const removed = logsContainer.removeChild(logsContainer.firstChild);
+                displayedLogs.delete(removed.textContent);
+            }
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function clearServiceLogs() {
+            const logsContainer = document.getElementById('service-logs');
+            if (logsContainer) {
+                logsContainer.innerHTML = '';
+                displayedLogs.clear();
+            }
+        }
+
         // Fetch Confluence data and display
         async function loadConfluenceData() {
             try {
@@ -275,8 +258,45 @@
             }
         }
 
+        // Capture spaces handler
+        async function captureSpaces() {
+            const button = document.getElementById('btn-capture-spaces');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Collecting...';
+
+            try {
+                const response = await fetch('/api/scrape/spaces', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to start spaces scraping');
+                }
+
+                // Reload data after short delay
+                setTimeout(() => {
+                    loadConfluenceData();
+                }, 2000);
+
+            } catch (error) {
+                console.error('Error starting spaces scrape:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }, 2000);
+            }
+        }
+
         // Load data on page load
-        document.addEventListener('DOMContentLoaded', loadConfluenceData);
+        document.addEventListener('DOMContentLoaded', function() {
+            connectWebSocket();
+            loadConfluenceData();
+        });
     </script>
 </body>
 </html>
