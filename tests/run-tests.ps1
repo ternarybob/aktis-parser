@@ -13,15 +13,18 @@ Write-Host "=============================" -ForegroundColor Cyan
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $scriptDir
 
-# Create results directory
+# Create results directory with timestamp
+$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $resultsDir = Join-Path $scriptDir "results"
-if (-not (Test-Path $resultsDir)) {
-    New-Item -ItemType Directory -Path $resultsDir | Out-Null
+$runDir = Join-Path $resultsDir "run_$timestamp"
+
+if (-not (Test-Path $runDir)) {
+    New-Item -ItemType Directory -Path $runDir -Force | Out-Null
 }
 
-# Timestamp
-$timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$resultsFile = Join-Path $resultsDir "test-results_$timestamp.log"
+Write-Host "Test run directory: $runDir" -ForegroundColor Cyan
+
+$resultsFile = Join-Path $runDir "test-results.log"
 
 # Check Go
 try {
@@ -98,11 +101,21 @@ foreach ($dir in $testDirs) {
         $testCmd += " -run $Test"
     }
 
-    $testLogFile = Join-Path $resultsDir "${dir}_test_$timestamp.log"
+    # Create subdirectory for this test type
+    $testRunDir = Join-Path $runDir $dir
+    if (-not (Test-Path $testRunDir)) {
+        New-Item -ItemType Directory -Path $testRunDir -Force | Out-Null
+    }
+
+    $testLogFile = Join-Path $testRunDir "test.log"
 
     Push-Location $testPath
     Write-Host "Command: $testCmd" -ForegroundColor Gray
     Write-Host "Logging to: $testLogFile" -ForegroundColor Gray
+    Write-Host "Screenshots will be saved to: $testRunDir" -ForegroundColor Gray
+
+    # Set environment variable for tests to find run directory
+    $env:TEST_RUN_DIR = $testRunDir
 
     Invoke-Expression "$testCmd 2>&1" | Tee-Object -FilePath $testLogFile
     $exitCode = $LASTEXITCODE

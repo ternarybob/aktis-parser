@@ -94,14 +94,6 @@ func _createLogger(config *LoggingConfig) (arbor.ILogger, error) {
 	// Initialize arbor logger
 	l := arbor.NewLogger()
 
-	// Configure memory writer for WebSocket streaming
-	l = l.WithMemoryWriter(models.WriterConfiguration{
-		Type:             models.LogWriterTypeMemory,
-		TimeFormat:       "15:04:05",
-		TextOutput:       true,
-		DisableTimestamp: false,
-	})
-
 	// Configure file logging if requested
 	if config.Output == "both" || config.Output == "file" || config.Output == "" {
 		logFile := filepath.Join(logsDir, "aktis-parser.log")
@@ -126,11 +118,16 @@ func _createLogger(config *LoggingConfig) (arbor.ILogger, error) {
 		})
 	}
 
+	// Always add memory writer for WebSocket log streaming (respects config but memory is always on)
+	l = l.WithMemoryWriter(models.WriterConfiguration{
+		Type:             models.LogWriterTypeMemory,
+		TimeFormat:       "15:04:05",
+		TextOutput:       true,
+		DisableTimestamp: false,
+	})
+
 	// Set log level
 	l = l.WithLevelFromString(config.Level)
-
-	// Test logging immediately to verify it's working
-	l.Info().Msg("Aktis Parser logger initialized")
 
 	return l, nil
 }

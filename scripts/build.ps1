@@ -296,6 +296,18 @@ if (Test-Path $configSourcePath) {
     }
 }
 
+# Copy pages directory to bin directory
+$pagesSourcePath = Join-Path -Path $projectRoot -ChildPath "pages"
+$pagesDestPath = Join-Path -Path $binDir -ChildPath "pages"
+
+if (Test-Path $pagesSourcePath) {
+    if (Test-Path $pagesDestPath) {
+        Remove-Item -Path $pagesDestPath -Recurse -Force
+    }
+    Copy-Item -Path $pagesSourcePath -Destination $pagesDestPath -Recurse
+    Write-Host "Copied pages: pages/ -> bin/pages/" -ForegroundColor Green
+}
+
 # Build and deploy Chrome Extension
 Write-Host "`nBuilding Chrome Extension..." -ForegroundColor Yellow
 

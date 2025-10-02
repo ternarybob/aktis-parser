@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AKTIS PARSER - Monitoring Dashboard</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #ffffff;
+            color: #2a2a2a;
+            font-family: sans-serif;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* Top Navbar */
+        .navbar {
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 0 40px;
+            height: 70px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .navbar-brand-title {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        }
+
+        .navbar-brand-subtitle {
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 1px;
+            color: #6a6a6a;
+            margin-top: 2px;
+        }
+
+        .navbar-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            background: #00cc00;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .status-text {
+            font-size: 11px;
+            color: #00cc00;
+            font-family: monospace;
+            letter-spacing: 1px;
+        }
+
+        .main-container {
+            max-width: 1920px;
+            margin: 0 auto;
+            background: #ffffff;
+            display: flex;
+            min-height: calc(100vh - 70px);
+        }
+
+        .content-area {
+            flex: 0 0 60%;
+            width: 60%;
+            overflow-y: auto;
+        }
+
+        .right-panel {
+            flex: 0 0 40%;
+            width: 40%;
+            background: #f8f8f8;
+            border-left: 1px solid #e0e0e0;
+            position: sticky;
+            top: 70px;
+            height: calc(100vh - 70px);
+            overflow-y: auto;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            padding: 40px;
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: center;
+        }
+
+        .hero-title {
+            font-size: 36px;
+            line-height: 1.2;
+            color: #1a1a1a;
+            margin-bottom: 15px;
+            font-weight: 400;
+            letter-spacing: 2px;
+        }
+
+        .hero-subtitle {
+            font-size: 16px;
+            color: #4a4a4a;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
+        .dashboard-grid {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 20px 40px;
+            background: #ffffff;
+            max-width: 1920px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            width: 100%;
+        }
+
+        .card:hover {
+            border-color: #00cc00;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .card-title {
+            font-size: 16px;
+            color: #2a2a2a;
+            font-weight: 400;
+        }
+
+        /* Status Table */
+        .status-table {
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-collapse: collapse;
+            font-family: monospace;
+            font-size: 11px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .status-table tr {
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .status-table tr:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            padding: 12px 15px;
+            background: #f8f8f8;
+            color: #6a6a6a;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 40%;
+            border-right: 1px solid #e0e0e0;
+        }
+
+        .status-value {
+            padding: 12px 15px;
+            color: #2a2a2a;
+            font-weight: 500;
+        }
+
+        .status-online {
+            color: #00cc00;
+            font-weight: 700;
+        }
+
+        /* Terminal Section */
+        .terminal-section {
+            background: #f8f8f8;
+            padding: 15px;
+        }
+
+        .terminal-header {
+            font-size: 12px;
+            letter-spacing: 2px;
+            color: #6a6a6a;
+            margin-bottom: 15px;
+            font-family: monospace;
+            text-transform: uppercase;
+        }
+
+        .terminal-content {
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            min-height: 400px;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.8;
+            overflow-y: auto;
+            max-height: calc(100vh - 180px);
+            border-radius: 4px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .log-entry {
+            padding: 6px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            font-family: monospace;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .service-logs-container {
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 11px;
+            line-height: 1.6;
+            color: #2a2a2a;
+            border-radius: 4px;
+            height: 400px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .btn-clear-logs {
+            background: transparent;
+            border: 1px solid #0066cc;
+            color: #0066cc;
+            padding: 6px 16px;
+            font-family: monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.3s;
+        }
+
+        .btn-clear-logs:hover {
+            background: #0066cc;
+            color: #ffffff;
+        }
+
+        /* Footer */
+        .system-footer {
+            background: #fafafa;
+            padding: 15px 40px;
+            text-align: center;
+            font-family: monospace;
+            font-size: 11px;
+            color: #6a6a6a;
+            letter-spacing: 2px;
+            border-top: 1px solid #e0e0e0;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Top Navbar -->
+    <nav class="navbar">
+        <a href="#" class="navbar-brand">
+            <span class="navbar-brand-title">AKTIS-PARSER-001</span>
+            <span class="navbar-brand-subtitle">Jira/Confluence Scraping & Storage Engine</span>
+        </a>
+        <div class="navbar-status">
+            <div class="status-indicator"></div>
+            <span class="status-text">SYSTEM ONLINE</span>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- Content Area (60%) -->
+        <div class="content-area">
+            <!-- Hero Section -->
+            <div class="hero-section">
+                <h1 class="hero-title">AKTIS PARSER</h1>
+                <p class="hero-subtitle">
+                    Automated Jira and Confluence data extraction using Chrome extension authentication.
+                    Industrial-grade scraping system with local BoltDB storage and real-time monitoring.
+                </p>
+            </div>
+
+            <!-- Parser Status Section -->
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Parser Status</div>
+                    </div>
+
+                    <div style="padding: 20px; text-align: center;">
+                        <p style="font-family: monospace; font-size: 12px; color: #6a6a6a; margin-bottom: 20px;">
+                            Install Chrome extension and click icon when logged into Jira/Confluence<br>
+                            Extension will capture authentication and trigger scraping automatically
+                        </p>
+                        <div id="parser-status" hx-get="/ui/parser-status" hx-trigger="load, every 5s" hx-swap="innerHTML">
+                            <p>Loading parser status...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Panel (40%) - Service Status & Logs -->
+        <div class="right-panel">
+            <!-- Service Status Monitor -->
+            <div class="terminal-section">
+                <div class="terminal-header">Service Status Monitor</div>
+                <table class="status-table" id="service-status-table" hx-get="/ui/status" hx-trigger="load, every 5s" hx-swap="innerHTML">
+                    <tr>
+                        <td class="status-label">Parser Service</td>
+                        <td class="status-value">ONLINE</td>
+                    </tr>
+                    <tr>
+                        <td class="status-label">Database</td>
+                        <td class="status-value">CONNECTED</td>
+                    </tr>
+                    <tr>
+                        <td class="status-label">Extension Auth</td>
+                        <td class="status-value">WAITING</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Service Logs -->
+            <div class="terminal-section" style="margin-top: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div class="terminal-header" style="margin-bottom: 0;">Service Logs</div>
+                    <button class="btn-clear-logs" onclick="clearServiceLogs()">Clear</button>
+                </div>
+                <div id="service-logs" class="service-logs-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="system-footer" id="footer-version" hx-get="/api/version" hx-trigger="load" hx-swap="innerHTML">
+        Aktis Parser // Version Loading...
+    </div>
+
+    <script>
+        let ws;
+        let reconnectInterval;
+
+        function clearServiceLogs() {
+            const serviceLogsContainer = document.getElementById('service-logs');
+            if (serviceLogsContainer) {
+                serviceLogsContainer.innerHTML = '';
+            }
+        }
+
+        function updateSystemStatus(online) {
+            const statusIndicator = document.querySelector('.status-indicator');
+            const statusText = document.querySelector('.status-text');
+
+            if (online) {
+                statusIndicator.style.background = '#00cc00';
+                statusText.style.color = '#00cc00';
+                statusText.textContent = 'SYSTEM ONLINE';
+            } else {
+                statusIndicator.style.background = '#cc0000';
+                statusText.style.color = '#cc0000';
+                statusText.textContent = 'SYSTEM OFFLINE';
+            }
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                console.log('WebSocket connected');
+                updateSystemStatus(true);
+                if (reconnectInterval) {
+                    clearInterval(reconnectInterval);
+                    reconnectInterval = null;
+                }
+            };
+
+            ws.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+
+                if (message.type === 'status') {
+                    updateStatus(message.payload);
+                } else if (message.type === 'log') {
+                    addLogEntry(message.payload.timestamp, message.payload.level, message.payload.message);
+                }
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                updateSystemStatus(false);
+            };
+
+            ws.onclose = function() {
+                console.log('WebSocket disconnected');
+                updateSystemStatus(false);
+
+                // Reconnect after 3 seconds
+                if (!reconnectInterval) {
+                    reconnectInterval = setInterval(function() {
+                        connectWebSocket();
+                    }, 3000);
+                }
+            };
+        }
+
+        function updateStatus(status) {
+            const statusTable = document.getElementById('service-status-table');
+            if (statusTable) {
+                statusTable.innerHTML = `
+                    <tr>
+                        <td class="status-label">Parser Service</td>
+                        <td class="status-value status-online">${status.status}</td>
+                    </tr>
+                    <tr>
+                        <td class="status-label">Database</td>
+                        <td class="status-value status-online">${status.database}</td>
+                    </tr>
+                    <tr>
+                        <td class="status-label">Extension Auth</td>
+                        <td class="status-value">${status.extensionAuth}</td>
+                    </tr>
+                `;
+            }
+
+            const parserStatus = document.getElementById('parser-status');
+            if (parserStatus) {
+                parserStatus.innerHTML = `
+                    <table class="status-table">
+                        <tr>
+                            <td class="status-label">Projects Scraped</td>
+                            <td class="status-value">${status.projectsCount}</td>
+                        </tr>
+                        <tr>
+                            <td class="status-label">Issues Scraped</td>
+                            <td class="status-value">${status.issuesCount}</td>
+                        </tr>
+                        <tr>
+                            <td class="status-label">Confluence Pages</td>
+                            <td class="status-value">${status.pagesCount}</td>
+                        </tr>
+                        <tr>
+                            <td class="status-label">Last Scrape</td>
+                            <td class="status-value">${status.lastScrape}</td>
+                        </tr>
+                    </table>
+                `;
+            }
+        }
+
+        function addLogEntry(timestamp, level, message) {
+            const logsContainer = document.getElementById('service-logs');
+            if (!logsContainer) return;
+
+            // Handle local messages that don't have timestamp
+            if (typeof timestamp !== 'string' || !timestamp.match(/\d+:\d+:\d+/)) {
+                message = level;
+                level = timestamp;
+                timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+            }
+
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry log-' + level;
+
+            let levelColor = '#6a6a6a';
+            let levelText = 'INFO';
+            if (level === 'error') {
+                levelColor = '#cc0000';
+                levelText = 'ERROR';
+            } else if (level === 'warn') {
+                levelColor = '#ff8800';
+                levelText = 'WARN';
+            } else if (level === 'info') {
+                levelColor = '#00cc00';
+                levelText = 'INFO';
+            }
+
+            logEntry.innerHTML = `
+                <span style="color: #6a6a6a;">[${timestamp}]</span>
+                <span style="color: ${levelColor}; font-weight: 700;"> [${levelText}]</span>
+                <span style="color: #2a2a2a;"> ${message}</span>
+            `;
+
+            logsContainer.appendChild(logEntry);
+
+            // Auto-scroll to bottom
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+
+            // Keep only last 100 log entries
+            while (logsContainer.children.length > 100) {
+                logsContainer.removeChild(logsContainer.firstChild);
+            }
+        }
+
+        // Connect on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>

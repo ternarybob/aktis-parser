@@ -21,7 +21,18 @@
       "Bash(Select-Object -ExpandProperty ExclusionPath)",
       "Bash(test:*)",
       "Bash(gofmt:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Read(//c/development/ternarybob/atlassian-test-data-populator/pages/**)",
+      "Read(//c/development/ternarybob/atlassian-test-data-populator/internal/**)",
+      "Bash(mkdir:*)",
+      "Bash(del c:developmentaktisaktis-parserinternalscraperscraper.go)",
+      "Read(//c/development/ternarybob/atlassian-test-data-populator/**)",
+      "Bash(tasklist)",
+      "Bash(findstr:*)",
+      "Bash(./aktis-parser.exe)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

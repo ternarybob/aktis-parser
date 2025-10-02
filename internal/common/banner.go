@@ -8,7 +8,7 @@ import (
 )
 
 // PrintBanner displays the application startup banner
-func PrintBanner(serviceName, environment, mode, logFile string) {
+func PrintBanner(serviceName, environment, mode, logFile, serviceURL string) {
 	version := GetVersion()
 	build := GetBuild()
 
@@ -33,6 +33,7 @@ func PrintBanner(serviceName, environment, mode, logFile string) {
 	b.PrintKeyValue("Build", build, 15)
 	b.PrintKeyValue("Environment", environment, 15)
 	b.PrintKeyValue("Mode", mode, 15)
+	b.PrintKeyValue("Service URL", serviceURL, 15)
 	b.PrintBottomLine()
 
 	fmt.Printf("\n")
@@ -40,6 +41,7 @@ func PrintBanner(serviceName, environment, mode, logFile string) {
 	// Print configuration details
 	fmt.Printf("📋 Configuration:\n")
 	fmt.Printf("   • Config File: aktis-parser.toml\n")
+	fmt.Printf("   • Web Interface: %s\n", serviceURL)
 
 	// Show log file if provided
 	if logFile != "" {
