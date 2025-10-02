@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Read(//c/development/aktis/aktis-collector-jira/scripts/**)",
+      "Read(//c/development/aktis/aktis-collector-jira/cmd/aktis-chrome-extension/**)",
+      "Read(//c/development/aktis/aktis-collector-jira/**)",
+      "Bash(powershell:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(./bin/aktis-parser.exe:*)",
+      "Bash(go mod:*)",
+      "Read(//c/development/ternarybob/atlassian-test-data-populator/tests/**)",
+      "Bash(go test:*)",
+      "Bash(tee:*)",
+      "Bash($timestamp = Get-Date -Format \"yyyy-MM-dd_HH-mm-ss\")",
+      "Bash(Tee-Object -FilePath \"../results/api_test_$timestamp.log\")",
+      "Bash(cmd /c:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(Get-MpPreference)",
+      "Bash(Select-Object -ExpandProperty ExclusionPath)",
+      "Bash(test:*)",
+      "Bash(gofmt:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

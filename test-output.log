@@ -1,0 +1,16 @@
+=== RUN   TestAPIAvailability
+    api_health_test.go:31: API is available at http://localhost:8085 (status: 200)
+--- PASS: TestAPIAvailability (0.01s)
+=== RUN   TestReceiverEndpoint
+    api_receiver_test.go:120: Response Status: 200
+    api_receiver_test.go:121: Response Body: 
+    api_receiver_test.go:139: 
+        	Error Trace:	C:/development/aktis/aktis-parser/tests/api/api_receiver_test.go:139
+        	Error:      	Received unexpected error:
+        	            	unexpected end of JSON input
+        	Test:       	TestReceiverEndpoint
+        	Messages:   	Failed to decode response
+--- FAIL: TestReceiverEndpoint (0.00s)
+FAIL
+exit status 1
+FAIL	aktis_parser_tests/api	2.909s

@@ -1,0 +1,59 @@
+# Aktis Parser Configuration
+
+[parser]
+# Parser name (defaults to executable name without extension)
+name = "aktis-parser"
+environment = "development"
+# Web interface port (default: 8080)
+port = 8080
+
+[scraper]
+# Authentication method: "extension" (browser extension authentication)
+# The Chrome extension will capture cookies and tokens from an active browser session
+auth_method = "extension"
+
+# Base URL for Jira/Confluence (will be overridden by extension auth data)
+base_url = "https://your-company.atlassian.net"
+
+# HTTP request timeout in seconds
+timeout_seconds = 30
+
+# Rate limiting: milliseconds to wait between API requests
+rate_limit_ms = 500
+
+[scraper.targets]
+# What to scrape
+scrape_jira = true
+scrape_confluence = true
+
+# Jira settings
+[scraper.jira]
+# Maximum results per page for issue queries
+max_results_per_page = 50
+
+[scraper.confluence]
+# Maximum results per page for page queries
+max_results_per_page = 25
+
+[storage]
+# Database file location - defaults to {executable_location}/scraper.db
+database_path = "./scraper.db"
+
+# Data retention in days (0 = keep forever)
+retention_days = 90
+
+[logging]
+# Log level: debug, info, warn, error, fatal, panic
+level = "info"
+
+# Log format: text or json
+format = "text"
+
+# Log output: console, file, or both
+output = "both"
+
+# Max log file size in MB
+max_size = 100
+
+# Max number of backup log files
+max_backups = 3
