@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confluence Data - Aktis Parser</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #ffffff;
+            color: #2a2a2a;
+            font-family: sans-serif;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* Top Navbar */
+        .navbar {
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 0 40px;
+            height: 70px;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .navbar-brand-title {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        }
+
+        .navbar-brand-subtitle {
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 1px;
+            color: #6a6a6a;
+            margin-top: 2px;
+        }
+
+        .navbar-menu {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .navbar-link {
+            font-size: 13px;
+            color: #6a6a6a;
+            text-decoration: none;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-family: monospace;
+            transition: all 0.3s;
+            padding-bottom: 4px;
+            border-bottom: 2px solid transparent;
+        }
+
+        .navbar-link:hover {
+            color: #1a1a1a;
+        }
+
+        .navbar-link.active {
+            color: #1a1a1a;
+            border-bottom: 2px solid #27ae60;
+        }
+
+        .navbar-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #27ae60;
+        }
+
+        .status-text {
+            font-size: 12px;
+            font-family: monospace;
+            color: #6a6a6a;
+            letter-spacing: 1px;
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 40px;
+        }
+
+        .page-header {
+            margin-bottom: 40px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: #6a6a6a;
+            font-family: monospace;
+        }
+
+        .data-section {
+            margin-bottom: 40px;
+        }
+
+        .section-header {
+            background: #f8f8f8;
+            padding: 20px;
+            border-left: 4px solid #27ae60;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 500;
+            color: #1a1a1a;
+            margin-bottom: 5px;
+        }
+
+        .section-count {
+            font-size: 14px;
+            font-family: monospace;
+            color: #6a6a6a;
+        }
+
+        .json-container {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        pre {
+            margin: 0;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6a6a6a;
+            font-family: monospace;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #dc3545;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6a6a6a;
+            font-family: monospace;
+            background: #f8f8f8;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Navbar -->
+    <nav class="navbar">
+        <a href="/" class="navbar-brand">
+            <div class="navbar-brand-title">AKTIS PARSER</div>
+            <div class="navbar-brand-subtitle">DATA COLLECTION SERVICE</div>
+        </a>
+        <div class="navbar-menu">
+            <a href="/" class="navbar-link">HOME</a>
+            <a href="/jira" class="navbar-link">JIRA DATA</a>
+            <a href="/confluence" class="navbar-link active">CONFLUENCE DATA</a>
+        </div>
+        <div class="navbar-status">
+            <div class="status-indicator"></div>
+            <span class="status-text">ONLINE</span>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">Confluence Data</h1>
+            <p class="page-subtitle">Pages stored in local database</p>
+        </div>
+
+        <!-- Pages Section -->
+        <div class="data-section">
+            <div class="section-header">
+                <div class="section-title">Pages</div>
+                <div class="section-count" id="pages-count">Loading...</div>
+            </div>
+            <div class="json-container">
+                <pre><code id="pages-data" class="language-json">Loading...</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch Confluence data and display
+        async function loadConfluenceData() {
+            try {
+                const response = await fetch('/api/data/confluence');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch Confluence data');
+                }
+
+                const data = await response.json();
+
+                // Display pages
+                const pagesCount = data.pages ? data.pages.length : 0;
+                document.getElementById('pages-count').textContent = `${pagesCount} page(s)`;
+
+                const pagesData = document.getElementById('pages-data');
+                if (pagesCount > 0) {
+                    pagesData.textContent = JSON.stringify(data.pages, null, 2);
+                } else {
+                    pagesData.textContent = 'No pages found in database';
+                }
+
+                // Apply syntax highlighting
+                document.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+
+            } catch (error) {
+                console.error('Error loading Confluence data:', error);
+                document.getElementById('pages-data').textContent = 'Error loading data: ' + error.message;
+            }
+        }
+
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', loadConfluenceData);
+    </script>
+</body>
+</html>

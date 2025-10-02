@@ -31,8 +31,8 @@
             border-bottom: 1px solid #e0e0e0;
             padding: 0 40px;
             height: 70px;
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
             align-items: center;
             position: sticky;
             top: 0;
@@ -60,6 +60,34 @@
             letter-spacing: 1px;
             color: #6a6a6a;
             margin-top: 2px;
+        }
+
+        .navbar-menu {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .navbar-link {
+            font-size: 13px;
+            color: #6a6a6a;
+            text-decoration: none;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-family: monospace;
+            transition: all 0.3s;
+            padding-bottom: 4px;
+            border-bottom: 2px solid transparent;
+        }
+
+        .navbar-link:hover {
+            color: #1a1a1a;
+        }
+
+        .navbar-link.active {
+            color: #1a1a1a;
+            border-bottom: 2px solid #2980b9;
         }
 
         .navbar-status {
@@ -319,13 +347,18 @@
 <body>
     <!-- Top Navbar -->
     <nav class="navbar">
-        <a href="#" class="navbar-brand">
-            <span class="navbar-brand-title">AKTIS-PARSER-001</span>
-            <span class="navbar-brand-subtitle">Jira/Confluence Scraping & Storage Engine</span>
+        <a href="/" class="navbar-brand">
+            <span class="navbar-brand-title">AKTIS PARSER</span>
+            <span class="navbar-brand-subtitle">DATA COLLECTION SERVICE</span>
         </a>
+        <div class="navbar-menu">
+            <a href="/" class="navbar-link active">HOME</a>
+            <a href="/jira" class="navbar-link">JIRA DATA</a>
+            <a href="/confluence" class="navbar-link">CONFLUENCE DATA</a>
+        </div>
         <div class="navbar-status">
             <div class="status-indicator"></div>
-            <span class="status-text">SYSTEM ONLINE</span>
+            <span class="status-text">ONLINE</span>
         </div>
     </nav>
 

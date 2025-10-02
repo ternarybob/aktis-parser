@@ -1,7 +1,7 @@
 {
     "manifest_version":  3,
     "name":  "Aktis Parser Auth Capture",
-    "version":  "0.1.68",
+    "version":  "0.1.71",
     "description":  "Captures authentication data from Jira/Confluence for Aktis Parser",
     "permissions":  [
                         "cookies",

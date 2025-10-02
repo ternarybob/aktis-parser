@@ -32,7 +32,8 @@
       "Bash(tasklist)",
       "Bash(findstr:*)",
       "Bash(./aktis-parser.exe)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Read(//c/development/aktis/aktis-collector/pages/**)"
     ],
     "deny": [],
     "ask": []

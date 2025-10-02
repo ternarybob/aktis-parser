@@ -22,6 +22,12 @@ type Scraper interface {
 	// IsAuthenticated checks if the scraper has valid authentication
 	IsAuthenticated() bool
 
+	// GetJiraData returns all Jira data (projects and issues)
+	GetJiraData() (map[string]interface{}, error)
+
+	// GetConfluenceData returns all Confluence data (pages)
+	GetConfluenceData() (map[string]interface{}, error)
+
 	// Close closes the scraper and releases resources
 	Close() error
 }
@@ -33,7 +39,7 @@ type ExtensionCookie struct {
 	Value    string `json:"value"`
 	Domain   string `json:"domain"`
 	Path     string `json:"path"`
-	Expires  int64  `json:"expires"`  // Unix timestamp
+	Expires  int64  `json:"expires"` // Unix timestamp
 	Secure   bool   `json:"secure"`
 	HTTPOnly bool   `json:"httpOnly"`
 	SameSite string `json:"sameSite"` // "Strict", "Lax", "None", or empty

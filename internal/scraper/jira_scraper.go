@@ -338,6 +338,69 @@ func (s *JiraScraper) IsAuthenticated() bool {
 	return s.client != nil && s.baseURL != ""
 }
 
+// GetJiraData returns all Jira data (projects and issues)
+func (s *JiraScraper) GetJiraData() (map[string]interface{}, error) {
+	result := map[string]interface{}{
+		"projects": make([]map[string]interface{}, 0),
+		"issues":   make([]map[string]interface{}, 0),
+	}
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		// Get all projects
+		projectBucket := tx.Bucket([]byte("projects"))
+		if projectBucket != nil {
+			projectBucket.ForEach(func(k, v []byte) error {
+				var project map[string]interface{}
+				if err := json.Unmarshal(v, &project); err == nil {
+					result["projects"] = append(result["projects"].([]map[string]interface{}), project)
+				}
+				return nil
+			})
+		}
+
+		// Get all issues
+		issueBucket := tx.Bucket([]byte("issues"))
+		if issueBucket != nil {
+			issueBucket.ForEach(func(k, v []byte) error {
+				var issue map[string]interface{}
+				if err := json.Unmarshal(v, &issue); err == nil {
+					result["issues"] = append(result["issues"].([]map[string]interface{}), issue)
+				}
+				return nil
+			})
+		}
+
+		return nil
+	})
+
+	return result, err
+}
+
+// GetConfluenceData returns all Confluence data (pages)
+func (s *JiraScraper) GetConfluenceData() (map[string]interface{}, error) {
+	result := map[string]interface{}{
+		"pages": make([]map[string]interface{}, 0),
+	}
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		// Get all pages
+		pageBucket := tx.Bucket([]byte("confluence_pages"))
+		if pageBucket != nil {
+			pageBucket.ForEach(func(k, v []byte) error {
+				var page map[string]interface{}
+				if err := json.Unmarshal(v, &page); err == nil {
+					result["pages"] = append(result["pages"].([]map[string]interface{}), page)
+				}
+				return nil
+			})
+		}
+
+		return nil
+	})
+
+	return result, err
+}
+
 // ScrapeAll performs a full scrape of Jira and Confluence
 func (s *JiraScraper) ScrapeAll() error {
 	s.log.Info().Msg("=== Starting full scrape ===")

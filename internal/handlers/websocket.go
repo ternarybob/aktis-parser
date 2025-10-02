@@ -21,6 +21,11 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// AuthLoader interface for loading stored authentication
+type AuthLoader interface {
+	LoadAuth() (*interfaces.AuthData, error)
+}
+
 type WebSocketHandler struct {
 	logger      arbor.ILogger
 	clients     map[*websocket.Conn]bool
@@ -28,6 +33,7 @@ type WebSocketHandler struct {
 	mu          sync.RWMutex
 	lastLogKeys map[string]bool
 	logKeysMu   sync.RWMutex
+	authLoader  AuthLoader
 }
 
 func NewWebSocketHandler() *WebSocketHandler {
@@ -37,6 +43,11 @@ func NewWebSocketHandler() *WebSocketHandler {
 		clientMutex: make(map[*websocket.Conn]*sync.Mutex),
 		lastLogKeys: make(map[string]bool),
 	}
+}
+
+// SetAuthLoader sets the auth loader for loading stored authentication
+func (h *WebSocketHandler) SetAuthLoader(loader AuthLoader) {
+	h.authLoader = loader
 }
 
 // BroadcastUILog sends a formatted log message directly to UI clients
@@ -91,6 +102,13 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 
 	// Send initial status
 	h.sendStatus(conn)
+
+	// Send stored authentication if available
+	if h.authLoader != nil {
+		if authData, err := h.authLoader.LoadAuth(); err == nil {
+			h.sendAuthToClient(conn, authData)
+		}
+	}
 
 	// Handle client disconnection
 	defer func() {
@@ -150,8 +168,8 @@ func (h *WebSocketHandler) BroadcastStatus(status StatusUpdate) {
 	}
 }
 
-// BroadcastAuth sends authentication data to all connected clients
-func (h *WebSocketHandler) BroadcastAuth(authData *interfaces.AuthData) {
+// sendAuthToClient sends authentication data to a single client
+func (h *WebSocketHandler) sendAuthToClient(conn *websocket.Conn, authData *interfaces.AuthData) {
 	type AuthPayload struct {
 		BaseURL   string                        `json:"baseUrl"`
 		CloudID   string                        `json:"cloudId"`
@@ -182,24 +200,25 @@ func (h *WebSocketHandler) BroadcastAuth(authData *interfaces.AuthData) {
 		return
 	}
 
+	mutex := h.clientMutex[conn]
+	if mutex != nil {
+		mutex.Lock()
+		conn.WriteMessage(websocket.TextMessage, data)
+		mutex.Unlock()
+	}
+}
+
+// BroadcastAuth sends authentication data to all connected clients
+func (h *WebSocketHandler) BroadcastAuth(authData *interfaces.AuthData) {
 	h.mu.RLock()
 	clients := make([]*websocket.Conn, 0, len(h.clients))
-	mutexes := make([]*sync.Mutex, 0, len(h.clients))
 	for conn := range h.clients {
 		clients = append(clients, conn)
-		mutexes = append(mutexes, h.clientMutex[conn])
 	}
 	h.mu.RUnlock()
 
-	for i, conn := range clients {
-		mutex := mutexes[i]
-		mutex.Lock()
-		err := conn.WriteMessage(websocket.TextMessage, data)
-		mutex.Unlock()
-
-		if err != nil {
-			h.logger.Warn().Err(err).Msg("Failed to send auth to client")
-		}
+	for _, conn := range clients {
+		h.sendAuthToClient(conn, authData)
 	}
 }
 

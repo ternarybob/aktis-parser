@@ -110,3 +110,15 @@ func (h *UIHandler) ParserStatusHandler(w http.ResponseWriter, r *http.Request) 
 
 	fmt.Fprint(w, html)
 }
+
+// JiraPageHandler serves the Jira data page
+func (h *UIHandler) JiraPageHandler(w http.ResponseWriter, r *http.Request) {
+	jiraPath := filepath.Join(h.staticDir, "jira.html")
+	http.ServeFile(w, r, jiraPath)
+}
+
+// ConfluencePageHandler serves the Confluence data page
+func (h *UIHandler) ConfluencePageHandler(w http.ResponseWriter, r *http.Request) {
+	confluencePath := filepath.Join(h.staticDir, "confluence.html")
+	http.ServeFile(w, r, confluencePath)
+}

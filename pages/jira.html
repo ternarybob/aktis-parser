@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jira Data - Aktis Parser</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #ffffff;
+            color: #2a2a2a;
+            font-family: sans-serif;
+            font-weight: 400;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* Top Navbar */
+        .navbar {
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 0 40px;
+            height: 70px;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .navbar-brand-title {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        }
+
+        .navbar-brand-subtitle {
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 1px;
+            color: #6a6a6a;
+            margin-top: 2px;
+        }
+
+        .navbar-menu {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .navbar-link {
+            font-size: 13px;
+            color: #6a6a6a;
+            text-decoration: none;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-family: monospace;
+            transition: all 0.3s;
+            padding-bottom: 4px;
+            border-bottom: 2px solid transparent;
+        }
+
+        .navbar-link:hover {
+            color: #1a1a1a;
+        }
+
+        .navbar-link.active {
+            color: #1a1a1a;
+            border-bottom: 2px solid #2980b9;
+        }
+
+        .navbar-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #27ae60;
+        }
+
+        .status-text {
+            font-size: 12px;
+            font-family: monospace;
+            color: #6a6a6a;
+            letter-spacing: 1px;
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 1400px;
+            margin: 40px auto;
+            padding: 0 40px;
+        }
+
+        .page-header {
+            margin-bottom: 40px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+        }
+
+        .page-subtitle {
+            font-size: 14px;
+            color: #6a6a6a;
+            font-family: monospace;
+        }
+
+        .data-section {
+            margin-bottom: 40px;
+        }
+
+        .section-header {
+            background: #f8f8f8;
+            padding: 20px;
+            border-left: 4px solid #2980b9;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 500;
+            color: #1a1a1a;
+            margin-bottom: 5px;
+        }
+
+        .section-count {
+            font-size: 14px;
+            font-family: monospace;
+            color: #6a6a6a;
+        }
+
+        .json-container {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        pre {
+            margin: 0;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6a6a6a;
+            font-family: monospace;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #dc3545;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6a6a6a;
+            font-family: monospace;
+            background: #f8f8f8;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Navbar -->
+    <nav class="navbar">
+        <a href="/" class="navbar-brand">
+            <div class="navbar-brand-title">AKTIS PARSER</div>
+            <div class="navbar-brand-subtitle">DATA COLLECTION SERVICE</div>
+        </a>
+        <div class="navbar-menu">
+            <a href="/" class="navbar-link">HOME</a>
+            <a href="/jira" class="navbar-link active">JIRA DATA</a>
+            <a href="/confluence" class="navbar-link">CONFLUENCE DATA</a>
+        </div>
+        <div class="navbar-status">
+            <div class="status-indicator"></div>
+            <span class="status-text">ONLINE</span>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">Jira Data</h1>
+            <p class="page-subtitle">Projects and Issues stored in local database</p>
+        </div>
+
+        <!-- Projects Section -->
+        <div class="data-section">
+            <div class="section-header">
+                <div class="section-title">Projects</div>
+                <div class="section-count" id="projects-count">Loading...</div>
+            </div>
+            <div class="json-container">
+                <pre><code id="projects-data" class="language-json">Loading...</code></pre>
+            </div>
+        </div>
+
+        <!-- Issues Section -->
+        <div class="data-section">
+            <div class="section-header">
+                <div class="section-title">Issues</div>
+                <div class="section-count" id="issues-count">Loading...</div>
+            </div>
+            <div class="json-container">
+                <pre><code id="issues-data" class="language-json">Loading...</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch Jira data and display
+        async function loadJiraData() {
+            try {
+                const response = await fetch('/api/data/jira');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch Jira data');
+                }
+
+                const data = await response.json();
+
+                // Display projects
+                const projectsCount = data.projects ? data.projects.length : 0;
+                document.getElementById('projects-count').textContent = `${projectsCount} project(s)`;
+
+                const projectsData = document.getElementById('projects-data');
+                if (projectsCount > 0) {
+                    projectsData.textContent = JSON.stringify(data.projects, null, 2);
+                } else {
+                    projectsData.textContent = 'No projects found in database';
+                }
+
+                // Display issues
+                const issuesCount = data.issues ? data.issues.length : 0;
+                document.getElementById('issues-count').textContent = `${issuesCount} issue(s)`;
+
+                const issuesData = document.getElementById('issues-data');
+                if (issuesCount > 0) {
+                    issuesData.textContent = JSON.stringify(data.issues, null, 2);
+                } else {
+                    issuesData.textContent = 'No issues found in database';
+                }
+
+                // Apply syntax highlighting
+                document.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+
+            } catch (error) {
+                console.error('Error loading Jira data:', error);
+                document.getElementById('projects-data').textContent = 'Error loading data: ' + error.message;
+                document.getElementById('issues-data').textContent = 'Error loading data: ' + error.message;
+            }
+        }
+
+        // Load data on page load
+        document.addEventListener('DOMContentLoaded', loadJiraData);
+    </script>
+</body>
+</html>
