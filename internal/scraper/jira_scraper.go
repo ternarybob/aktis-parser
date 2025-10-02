@@ -14,6 +14,11 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+// UILogger interface for broadcasting to UI
+type UILogger interface {
+	BroadcastUILog(level, message string)
+}
+
 // JiraScraper implements the Scraper interface for Atlassian Jira/Confluence
 type JiraScraper struct {
 	client    *http.Client
@@ -23,6 +28,7 @@ type JiraScraper struct {
 	atlToken  string
 	db        *bolt.DB
 	log       ILogger
+	uiLog     UILogger
 }
 
 // NewJiraScraper creates a new Jira/Confluence scraper instance
@@ -37,6 +43,7 @@ func NewJiraScraper(dbPath string, logger ILogger) (*JiraScraper, error) {
 		tx.CreateBucketIfNotExists([]byte("projects"))
 		tx.CreateBucketIfNotExists([]byte("issues"))
 		tx.CreateBucketIfNotExists([]byte("confluence_pages"))
+		tx.CreateBucketIfNotExists([]byte("auth"))
 		return nil
 	})
 
@@ -44,6 +51,11 @@ func NewJiraScraper(dbPath string, logger ILogger) (*JiraScraper, error) {
 		db:  db,
 		log: logger,
 	}, nil
+}
+
+// SetUILogger sets the UI logger for broadcasting to WebSocket clients
+func (s *JiraScraper) SetUILogger(uiLog UILogger) {
+	s.uiLog = uiLog
 }
 
 // Close closes the scraper and releases database resources
@@ -60,7 +72,7 @@ func (s *JiraScraper) UpdateAuth(authData *interfaces.AuthData) error {
 	}
 
 	baseURL, _ := url.Parse(authData.BaseURL)
-	s.client.Jar.SetCookies(baseURL, authData.Cookies)
+	s.client.Jar.SetCookies(baseURL, authData.GetHTTPCookies())
 
 	s.baseURL = authData.BaseURL
 	s.userAgent = authData.UserAgent
@@ -72,8 +84,50 @@ func (s *JiraScraper) UpdateAuth(authData *interfaces.AuthData) error {
 		s.atlToken = atlToken
 	}
 
+	// Store authentication in database
+	if err := s.storeAuth(authData); err != nil {
+		s.log.Error().Err(err).Msg("Failed to store auth in database")
+	}
+
 	s.log.Info().Str("baseURL", s.baseURL).Msg("Auth updated")
+	if s.uiLog != nil {
+		s.uiLog.BroadcastUILog("info", fmt.Sprintf("Authentication updated for %s", s.baseURL))
+	}
 	return nil
+}
+
+// storeAuth stores authentication data in the database
+func (s *JiraScraper) storeAuth(authData *interfaces.AuthData) error {
+	data, err := json.Marshal(authData)
+	if err != nil {
+		return err
+	}
+
+	return s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("auth"))
+		return bucket.Put([]byte("current"), data)
+	})
+}
+
+// LoadAuth loads authentication from the database
+func (s *JiraScraper) LoadAuth() (*interfaces.AuthData, error) {
+	var authData interfaces.AuthData
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("auth"))
+		data := bucket.Get([]byte("current"))
+		if data == nil {
+			return fmt.Errorf("no authentication stored")
+		}
+		return json.Unmarshal(data, &authData)
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Reapply auth to HTTP client
+	return &authData, s.UpdateAuth(&authData)
 }
 
 // makeRequest makes an authenticated HTTP request
@@ -102,8 +156,8 @@ func (s *JiraScraper) makeRequest(method, path string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// scrapeProjects scrapes all Jira projects and their issues
-func (s *JiraScraper) scrapeProjects() error {
+// ScrapeProjects scrapes all Jira projects and their issues
+func (s *JiraScraper) ScrapeProjects() error {
 	s.log.Info().Msg("Scraping projects...")
 
 	data, err := s.makeRequest("GET", "/rest/api/3/project")
@@ -123,6 +177,13 @@ func (s *JiraScraper) scrapeProjects() error {
 			value, _ := json.Marshal(project)
 			bucket.Put([]byte(key), value)
 			s.log.Info().Str("project", key).Msg("Stored project")
+			if s.uiLog != nil {
+				projectName := "Unknown"
+				if name, ok := project["name"].(string); ok {
+					projectName = name
+				}
+				s.uiLog.BroadcastUILog("info", fmt.Sprintf("Stored project: %s (%s)", key, projectName))
+			}
 		}
 		return nil
 	})
@@ -137,6 +198,9 @@ func (s *JiraScraper) scrapeProjects() error {
 // scrapeProjectIssues scrapes all issues for a given project
 func (s *JiraScraper) scrapeProjectIssues(projectKey string) error {
 	s.log.Info().Str("project", projectKey).Msg("Scraping issues for project")
+	if s.uiLog != nil {
+		s.uiLog.BroadcastUILog("info", fmt.Sprintf("Fetching issues for project: %s", projectKey))
+	}
 
 	startAt := 0
 	maxResults := 50
@@ -172,10 +236,10 @@ func (s *JiraScraper) scrapeProjectIssues(projectKey string) error {
 			return nil
 		})
 
-		s.log.Info().
-			Int("count", len(result.Issues)).
-			Int("total", result.Total).
-			Msg("Stored issues")
+		s.log.Info().Msgf("Stored issues (count=%d, total=%d)", len(result.Issues), result.Total)
+		if s.uiLog != nil {
+			s.uiLog.BroadcastUILog("info", fmt.Sprintf("Stored %d issues for project %s (total: %d)", len(result.Issues), projectKey, result.Total))
+		}
 
 		startAt += maxResults
 		if startAt >= result.Total {
@@ -188,8 +252,8 @@ func (s *JiraScraper) scrapeProjectIssues(projectKey string) error {
 	return nil
 }
 
-// scrapeConfluence scrapes all Confluence spaces and pages
-func (s *JiraScraper) scrapeConfluence() error {
+// ScrapeConfluence scrapes all Confluence spaces and pages
+func (s *JiraScraper) ScrapeConfluence() error {
 	s.log.Info().Msg("Scraping Confluence spaces...")
 
 	data, err := s.makeRequest("GET", "/wiki/rest/api/space")
@@ -214,7 +278,10 @@ func (s *JiraScraper) scrapeConfluence() error {
 
 // scrapeSpacePages scrapes all pages in a Confluence space
 func (s *JiraScraper) scrapeSpacePages(spaceKey string) error {
-	s.log.Info().Str("space", spaceKey).Msg("Scraping pages for space")
+	s.log.Info().Str("workspace", spaceKey).Msg("Fetching Confluence pages from workspace")
+	if s.uiLog != nil {
+		s.uiLog.BroadcastUILog("info", fmt.Sprintf("Fetching pages from workspace: %s", spaceKey))
+	}
 
 	start := 0
 	limit := 25
@@ -250,7 +317,10 @@ func (s *JiraScraper) scrapeSpacePages(spaceKey string) error {
 			return nil
 		})
 
-		s.log.Info().Int("count", len(result.Results)).Msg("Stored pages")
+		s.log.Info().Msgf("Stored pages (count=%d)", len(result.Results))
+		if s.uiLog != nil {
+			s.uiLog.BroadcastUILog("info", fmt.Sprintf("Stored %d pages from workspace %s", len(result.Results), spaceKey))
+		}
 
 		start += limit
 		if len(result.Results) < limit {
@@ -263,15 +333,20 @@ func (s *JiraScraper) scrapeSpacePages(spaceKey string) error {
 	return nil
 }
 
+// IsAuthenticated checks if the scraper has valid authentication
+func (s *JiraScraper) IsAuthenticated() bool {
+	return s.client != nil && s.baseURL != ""
+}
+
 // ScrapeAll performs a full scrape of Jira and Confluence
 func (s *JiraScraper) ScrapeAll() error {
 	s.log.Info().Msg("=== Starting full scrape ===")
 
-	if err := s.scrapeProjects(); err != nil {
+	if err := s.ScrapeProjects(); err != nil {
 		return fmt.Errorf("project scrape failed: %v", err)
 	}
 
-	if err := s.scrapeConfluence(); err != nil {
+	if err := s.ScrapeConfluence(); err != nil {
 		s.log.Error().Err(err).Msg("Confluence scrape failed")
 	}
 

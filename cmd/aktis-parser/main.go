@@ -48,9 +48,20 @@ func main() {
 
 	// 5. Initialize handlers
 	apiHandler := handlers.NewAPIHandler()
-	scraperHandler := handlers.NewScraperHandler(jiraScraper)
 	uiHandler := handlers.NewUIHandler()
 	wsHandler := handlers.NewWebSocketHandler()
+	scraperHandler := handlers.NewScraperHandler(jiraScraper, wsHandler)
+
+	// Set UI logger for scraper
+	jiraScraper.SetUILogger(wsHandler)
+
+	// Load stored authentication if available
+	if authData, err := jiraScraper.LoadAuth(); err == nil {
+		logger.Info().Msg("Loaded stored authentication from database")
+		wsHandler.BroadcastAuth(authData)
+	} else {
+		logger.Debug().Err(err).Msg("No stored authentication found")
+	}
 
 	// Start WebSocket status broadcaster and log streamer
 	wsHandler.StartStatusBroadcaster()
@@ -69,6 +80,8 @@ func main() {
 	// API routes
 	http.HandleFunc("/api/auth", scraperHandler.AuthUpdateHandler)
 	http.HandleFunc("/api/scrape", scraperHandler.ScrapeHandler)
+	http.HandleFunc("/api/scrape/projects", scraperHandler.ScrapeProjectsHandler)
+	http.HandleFunc("/api/scrape/spaces", scraperHandler.ScrapeSpacesHandler)
 	http.HandleFunc("/api/version", apiHandler.VersionHandler)
 	http.HandleFunc("/api/health", apiHandler.HealthHandler)
 

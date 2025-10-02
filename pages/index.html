@@ -358,6 +358,35 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Authentication Details Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Authentication Details</div>
+                    </div>
+
+                    <div id="auth-details" style="padding: 20px;">
+                        <p style="font-family: monospace; font-size: 12px; color: #6a6a6a; text-align: center;">
+                            No authentication data captured yet
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Scraping Controls Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">Data Collection</div>
+                    </div>
+
+                    <div style="padding: 20px; display: flex; gap: 10px;">
+                        <button id="btn-scrape-projects" style="flex: 1; padding: 12px; background: #2980b9; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: 500;">
+                            Capture Projects
+                        </button>
+                        <button id="btn-scrape-spaces" style="flex: 1; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; font-weight: 500;">
+                            Capture Spaces
+                        </button>
+                    </div>
+                </div>
             </div>
 
         </div>
@@ -447,6 +476,8 @@
                     updateStatus(message.payload);
                 } else if (message.type === 'log') {
                     addLogEntry(message.payload.timestamp, message.payload.level, message.payload.message);
+                } else if (message.type === 'auth') {
+                    updateAuthDetails(message.payload);
                 }
             };
 
@@ -556,9 +587,121 @@
             }
         }
 
-        // Connect on page load
+        function updateAuthDetails(authData) {
+            const authContainer = document.getElementById('auth-details');
+            if (!authContainer) return;
+
+            if (!authData || !authData.cookies || authData.cookies.length === 0) {
+                authContainer.innerHTML = `
+                    <p style="font-family: monospace; font-size: 12px; color: #6a6a6a; text-align: center;">
+                        No authentication data captured yet
+                    </p>
+                `;
+                return;
+            }
+
+            let html = `
+                <div style="margin-bottom: 15px;">
+                    <p style="font-family: monospace; font-size: 11px; color: #6a6a6a; margin-bottom: 8px;">
+                        <strong>Base URL:</strong> ${authData.baseUrl || 'N/A'}
+                    </p>
+                    <p style="font-family: monospace; font-size: 11px; color: #6a6a6a; margin-bottom: 8px;">
+                        <strong>Cloud ID:</strong> ${authData.cloudId || 'N/A'}
+                    </p>
+                    <p style="font-family: monospace; font-size: 11px; color: #6a6a6a; margin-bottom: 15px;">
+                        <strong>Cookies:</strong> ${authData.cookies.length}
+                    </p>
+                </div>
+                <table class="status-table" style="font-size: 10px;">
+                    <tr style="background: #f8f8f8;">
+                        <th style="padding: 8px; text-align: left; border-right: 1px solid #e0e0e0;">Name</th>
+                        <th style="padding: 8px; text-align: left; border-right: 1px solid #e0e0e0;">Domain</th>
+                        <th style="padding: 8px; text-align: left; border-right: 1px solid #e0e0e0;">Path</th>
+                        <th style="padding: 8px; text-align: left;">Secure</th>
+                    </tr>
+            `;
+
+            authData.cookies.forEach(cookie => {
+                html += `
+                    <tr>
+                        <td style="padding: 8px; border-right: 1px solid #e0e0e0; word-break: break-all;">${cookie.name}</td>
+                        <td style="padding: 8px; border-right: 1px solid #e0e0e0;">${cookie.domain}</td>
+                        <td style="padding: 8px; border-right: 1px solid #e0e0e0;">${cookie.path}</td>
+                        <td style="padding: 8px;">${cookie.secure ? '✓' : '-'}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</table>`;
+            authContainer.innerHTML = html;
+        }
+
+        // Scraping control functions
+        async function scrapeProjects() {
+            const button = document.getElementById('btn-scrape-projects');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Collecting...';
+
+            try {
+                const response = await fetch('/api/scrape/projects', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to start project scraping');
+                }
+
+                console.log(result.message);
+            } catch (error) {
+                console.error('Error starting project scrape:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }, 2000);
+            }
+        }
+
+        async function scrapeSpaces() {
+            const button = document.getElementById('btn-scrape-spaces');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Collecting...';
+
+            try {
+                const response = await fetch('/api/scrape/spaces', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to start spaces scraping');
+                }
+
+                console.log(result.message);
+            } catch (error) {
+                console.error('Error starting spaces scrape:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }, 2000);
+            }
+        }
+
+        // Connect on page load and attach event listeners
         document.addEventListener('DOMContentLoaded', function() {
             connectWebSocket();
+
+            // Attach button event listeners
+            document.getElementById('btn-scrape-projects').addEventListener('click', scrapeProjects);
+            document.getElementById('btn-scrape-spaces').addEventListener('click', scrapeSpaces);
         });
     </script>
 </body>

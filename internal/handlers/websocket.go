@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bobmc/aktis-parser/internal/common"
+	"github.com/bobmc/aktis-parser/internal/interfaces"
 	"github.com/gorilla/websocket"
 	"github.com/ternarybob/arbor"
 )
@@ -38,6 +39,18 @@ func NewWebSocketHandler() *WebSocketHandler {
 	}
 }
 
+// BroadcastUILog sends a formatted log message directly to UI clients
+// This bypasses the arbor logger and sends complete, formatted messages
+func (h *WebSocketHandler) BroadcastUILog(level, message string) {
+	timestamp := time.Now().Format("15:04:05")
+	entry := LogEntry{
+		Timestamp: timestamp,
+		Level:     level,
+		Message:   message,
+	}
+	h.BroadcastLog(entry)
+}
+
 // Message types
 type WSMessage struct {
 	Type    string      `json:"type"`
@@ -45,14 +58,14 @@ type WSMessage struct {
 }
 
 type StatusUpdate struct {
-	Service        string `json:"service"`
-	Status         string `json:"status"`
-	Database       string `json:"database"`
-	ExtensionAuth  string `json:"extensionAuth"`
-	ProjectsCount  int    `json:"projectsCount"`
-	IssuesCount    int    `json:"issuesCount"`
-	PagesCount     int    `json:"pagesCount"`
-	LastScrape     string `json:"lastScrape"`
+	Service       string `json:"service"`
+	Status        string `json:"status"`
+	Database      string `json:"database"`
+	ExtensionAuth string `json:"extensionAuth"`
+	ProjectsCount int    `json:"projectsCount"`
+	IssuesCount   int    `json:"issuesCount"`
+	PagesCount    int    `json:"pagesCount"`
+	LastScrape    string `json:"lastScrape"`
 }
 
 type LogEntry struct {
@@ -137,6 +150,59 @@ func (h *WebSocketHandler) BroadcastStatus(status StatusUpdate) {
 	}
 }
 
+// BroadcastAuth sends authentication data to all connected clients
+func (h *WebSocketHandler) BroadcastAuth(authData *interfaces.AuthData) {
+	type AuthPayload struct {
+		BaseURL   string                        `json:"baseUrl"`
+		CloudID   string                        `json:"cloudId"`
+		Cookies   []*interfaces.ExtensionCookie `json:"cookies"`
+		Timestamp int64                         `json:"timestamp"`
+	}
+
+	cloudID := ""
+	if cid, ok := authData.Tokens["cloudId"].(string); ok {
+		cloudID = cid
+	}
+
+	payload := AuthPayload{
+		BaseURL:   authData.BaseURL,
+		CloudID:   cloudID,
+		Cookies:   authData.Cookies,
+		Timestamp: authData.Timestamp,
+	}
+
+	msg := WSMessage{
+		Type:    "auth",
+		Payload: payload,
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		h.logger.Error().Err(err).Msg("Failed to marshal auth message")
+		return
+	}
+
+	h.mu.RLock()
+	clients := make([]*websocket.Conn, 0, len(h.clients))
+	mutexes := make([]*sync.Mutex, 0, len(h.clients))
+	for conn := range h.clients {
+		clients = append(clients, conn)
+		mutexes = append(mutexes, h.clientMutex[conn])
+	}
+	h.mu.RUnlock()
+
+	for i, conn := range clients {
+		mutex := mutexes[i]
+		mutex.Lock()
+		err := conn.WriteMessage(websocket.TextMessage, data)
+		mutex.Unlock()
+
+		if err != nil {
+			h.logger.Warn().Err(err).Msg("Failed to send auth to client")
+		}
+	}
+}
+
 // BroadcastLog sends log entries to all connected clients
 func (h *WebSocketHandler) BroadcastLog(entry LogEntry) {
 	msg := WSMessage{
@@ -174,14 +240,14 @@ func (h *WebSocketHandler) BroadcastLog(entry LogEntry) {
 // sendStatus sends current status to a specific client
 func (h *WebSocketHandler) sendStatus(conn *websocket.Conn) {
 	status := StatusUpdate{
-		Service:        "ONLINE",
-		Status:         "ONLINE",
-		Database:       "CONNECTED",
-		ExtensionAuth:  "WAITING",
-		ProjectsCount:  0,
-		IssuesCount:    0,
-		PagesCount:     0,
-		LastScrape:     "Never",
+		Service:       "ONLINE",
+		Status:        "ONLINE",
+		Database:      "CONNECTED",
+		ExtensionAuth: "WAITING",
+		ProjectsCount: 0,
+		IssuesCount:   0,
+		PagesCount:    0,
+		LastScrape:    "Never",
 	}
 
 	msg := WSMessage{
@@ -221,14 +287,14 @@ func (h *WebSocketHandler) StartStatusBroadcaster() {
 
 			if clientCount > 0 {
 				status := StatusUpdate{
-					Service:        "ONLINE",
-					Status:         "ONLINE",
-					Database:       "CONNECTED",
-					ExtensionAuth:  "WAITING",
-					ProjectsCount:  0,
-					IssuesCount:    0,
-					PagesCount:     0,
-					LastScrape:     "Never",
+					Service:       "ONLINE",
+					Status:        "ONLINE",
+					Database:      "CONNECTED",
+					ExtensionAuth: "WAITING",
+					ProjectsCount: 0,
+					IssuesCount:   0,
+					PagesCount:    0,
+					LastScrape:    "Never",
 				}
 				h.BroadcastStatus(status)
 			}
@@ -315,8 +381,8 @@ func (h *WebSocketHandler) sendLogs() {
 }
 
 // parseAndBroadcastLog parses a log line and broadcasts it as a LogEntry
-// Arbor memory writer format: "INF|Oct  2 16:27:13|Web UI available"
-// Output format: "[16:27:13] [INFO] Web UI available"
+// Arbor memory writer format: "INF|Oct  2 16:27:13|Message key=value key2=value2"
+// Output format: "[16:27:13] [INFO] Message key=value key2=value2"
 func (h *WebSocketHandler) parseAndBroadcastLog(logLine string) {
 	if logLine == "" {
 		return
@@ -329,8 +395,8 @@ func (h *WebSocketHandler) parseAndBroadcastLog(logLine string) {
 		return
 	}
 
-	// Parse arbor memory writer format: "LEVEL|Date Time|Message"
-	// Example: "INF|Oct  2 16:27:13|Web UI available"
+	// Parse arbor memory writer format: "LEVEL|Date Time|Message with fields"
+	// Example: "INF|Oct  2 16:27:13|Stored pages count=25"
 	parts := strings.SplitN(logLine, "|", 3)
 	if len(parts) != 3 {
 		return
@@ -338,7 +404,7 @@ func (h *WebSocketHandler) parseAndBroadcastLog(logLine string) {
 
 	levelStr := strings.TrimSpace(parts[0])
 	dateTime := strings.TrimSpace(parts[1])
-	message := strings.TrimSpace(parts[2])
+	messageWithFields := strings.TrimSpace(parts[2])
 
 	// Map level
 	level := "info"
@@ -364,7 +430,7 @@ func (h *WebSocketHandler) parseAndBroadcastLog(logLine string) {
 	entry := LogEntry{
 		Timestamp: timestamp,
 		Level:     level,
-		Message:   message,
+		Message:   messageWithFields, // Include the full message with structured fields
 	}
 	h.BroadcastLog(entry)
 }
