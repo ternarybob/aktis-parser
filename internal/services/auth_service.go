@@ -95,7 +95,9 @@ func (s *AtlassianAuthService) UpdateAuth(authData *interfaces.AuthData) error {
 
 // IsAuthenticated checks if valid authentication exists
 func (s *AtlassianAuthService) IsAuthenticated() bool {
-	return s.client != nil && s.baseURL != "" && s.cloudId != ""
+	// Only require HTTP client with cookies and baseURL
+	// cloudId and atlToken are optional and not used in API requests
+	return s.client != nil && s.baseURL != ""
 }
 
 // LoadAuth loads authentication from storage

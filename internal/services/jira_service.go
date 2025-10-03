@@ -627,3 +627,29 @@ func (s *JiraScraper) ScrapeAll() error {
 	s.log.Info().Msg("=== Jira scrape complete ===")
 	return nil
 }
+
+// GetProjectCount returns the count of projects in the database
+func (s *JiraScraper) GetProjectCount() int {
+	count := 0
+	s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("projects"))
+		if bucket != nil {
+			count = bucket.Stats().KeyN
+		}
+		return nil
+	})
+	return count
+}
+
+// GetIssueCount returns the count of issues in the database
+func (s *JiraScraper) GetIssueCount() int {
+	count := 0
+	s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("issues"))
+		if bucket != nil {
+			count = bucket.Stats().KeyN
+		}
+		return nil
+	})
+	return count
+}

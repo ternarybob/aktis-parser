@@ -44,6 +44,17 @@
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title">Parser Status</div>
+                        <button
+                            id="refresh-parser-status"
+                            class="btn-clear-logs"
+                            hx-get="/ui/parser-status"
+                            hx-target="#parser-status"
+                            hx-swap="innerHTML"
+                            hx-trigger="click, load, every 60s"
+                            hx-sync="this:abort"
+                            style="padding: 4px 12px; font-size: 11px;">
+                            Refresh
+                        </button>
                     </div>
 
                     <div style="padding: 20px; text-align: center;">
@@ -51,7 +62,7 @@
                             Install Chrome extension and click icon when logged into Jira/Confluence<br>
                             Extension will capture authentication and trigger scraping automatically
                         </p>
-                        <div id="parser-status" hx-get="/ui/parser-status" hx-trigger="load, every 5s" hx-swap="innerHTML">
+                        <div id="parser-status">
                             <p>Loading parser status...</p>
                         </div>
                     </div>
@@ -79,7 +90,7 @@
             <!-- Service Status Monitor -->
             <div class="terminal-section">
                 <div class="terminal-header">Service Status Monitor</div>
-                <table class="status-table" id="service-status-table" hx-get="/ui/status" hx-trigger="load, every 5s" hx-swap="innerHTML">
+                <table class="status-table" id="service-status-table" hx-get="/ui/status" hx-trigger="load, every 60s" hx-swap="innerHTML">
                     <tr>
                         <td class="status-label">Parser Service</td>
                         <td class="status-value">ONLINE</td>
@@ -201,29 +212,8 @@
                 `;
             }
 
-            const parserStatus = document.getElementById('parser-status');
-            if (parserStatus) {
-                parserStatus.innerHTML = `
-                    <table class="status-table">
-                        <tr>
-                            <td class="status-label">Projects Scraped</td>
-                            <td class="status-value">${status.projectsCount}</td>
-                        </tr>
-                        <tr>
-                            <td class="status-label">Issues Scraped</td>
-                            <td class="status-value">${status.issuesCount}</td>
-                        </tr>
-                        <tr>
-                            <td class="status-label">Confluence Pages</td>
-                            <td class="status-value">${status.pagesCount}</td>
-                        </tr>
-                        <tr>
-                            <td class="status-label">Last Scrape</td>
-                            <td class="status-value">${status.lastScrape}</td>
-                        </tr>
-                    </table>
-                `;
-            }
+            // Parser status updates are now handled by HTMX refresh button
+            // No need to update parser-status div from WebSocket
         }
 
         function addLogEntry(timestamp, level, message) {

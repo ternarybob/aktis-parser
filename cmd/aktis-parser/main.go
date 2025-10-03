@@ -67,7 +67,7 @@ func main() {
 
 	// 5. Initialize handlers
 	apiHandler := handlers.NewAPIHandler()
-	uiHandler := handlers.NewUIHandler()
+	uiHandler := handlers.NewUIHandler(jiraService, confluenceService)
 	wsHandler := handlers.NewWebSocketHandler()
 	scraperHandler := handlers.NewScraperHandler(authService, jiraService, confluenceService, wsHandler)
 	dataHandler := handlers.NewDataHandler(jiraService, confluenceService)
@@ -97,8 +97,8 @@ func main() {
 	http.HandleFunc("/confluence", uiHandler.ConfluencePageHandler)
 	http.HandleFunc("/static/common.css", uiHandler.StaticFileHandler)
 	http.HandleFunc("/favicon.ico", uiHandler.StaticFileHandler)
-	http.HandleFunc("/status", uiHandler.StatusHandler)
-	http.HandleFunc("/parser-status", uiHandler.ParserStatusHandler)
+	http.HandleFunc("/ui/status", uiHandler.StatusHandler)
+	http.HandleFunc("/ui/parser-status", uiHandler.ParserStatusHandler)
 
 	// WebSocket route
 	http.HandleFunc("/ws", wsHandler.HandleWebSocket)

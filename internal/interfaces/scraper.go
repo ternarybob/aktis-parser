@@ -67,6 +67,12 @@ type JiraScraper interface {
 
 	// GetJiraData returns all Jira data (projects and issues)
 	GetJiraData() (map[string]interface{}, error)
+
+	// GetProjectCount returns the count of projects in the database
+	GetProjectCount() int
+
+	// GetIssueCount returns the count of issues in the database
+	GetIssueCount() int
 }
 
 // ConfluenceScraper defines the interface for Confluence scraping operations
@@ -87,6 +93,12 @@ type ConfluenceScraper interface {
 
 	// GetConfluenceData returns all Confluence data (spaces and pages)
 	GetConfluenceData() (map[string]interface{}, error)
+
+	// GetSpaceCount returns the count of Confluence spaces in the database
+	GetSpaceCount() int
+
+	// GetPageCount returns the count of Confluence pages in the database
+	GetPageCount() int
 }
 
 // ClearableData defines interface for services that can clear their data

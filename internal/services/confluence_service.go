@@ -533,3 +533,29 @@ func (s *ConfluenceScraperService) ClearAllData() error {
 		return nil
 	})
 }
+
+// GetSpaceCount returns the count of Confluence spaces in the database
+func (s *ConfluenceScraperService) GetSpaceCount() int {
+	count := 0
+	s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("confluence_spaces"))
+		if bucket != nil {
+			count = bucket.Stats().KeyN
+		}
+		return nil
+	})
+	return count
+}
+
+// GetPageCount returns the count of Confluence pages in the database
+func (s *ConfluenceScraperService) GetPageCount() int {
+	count := 0
+	s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("confluence_pages"))
+		if bucket != nil {
+			count = bucket.Stats().KeyN
+		}
+		return nil
+	})
+	return count
+}

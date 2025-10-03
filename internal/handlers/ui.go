@@ -7,18 +7,23 @@ import (
 	"path/filepath"
 
 	"aktis-parser/internal/common"
+	"aktis-parser/internal/interfaces"
 	"github.com/ternarybob/arbor"
 )
 
 type UIHandler struct {
-	logger    arbor.ILogger
-	staticDir string
+	logger            arbor.ILogger
+	staticDir         string
+	jiraScraper       interfaces.JiraScraper
+	confluenceScraper interfaces.ConfluenceScraper
 }
 
-func NewUIHandler() *UIHandler {
+func NewUIHandler(jira interfaces.JiraScraper, confluence interfaces.ConfluenceScraper) *UIHandler {
 	return &UIHandler{
-		logger:    common.GetLogger(),
-		staticDir: getStaticDir(),
+		logger:            common.GetLogger(),
+		staticDir:         getStaticDir(),
+		jiraScraper:       jira,
+		confluenceScraper: confluence,
 	}
 }
 
@@ -73,30 +78,39 @@ func (h *UIHandler) StatusHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, html)
 }
 
-// ParserStatusHandler returns HTML for parser status
+// ParserStatusHandler returns HTML for parser status with database counts
 func (h *UIHandler) ParserStatusHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 
-	html := `
+	// Get database counts directly from efficient count methods
+	projectCount := h.jiraScraper.GetProjectCount()
+	issueCount := h.jiraScraper.GetIssueCount()
+	spaceCount := h.confluenceScraper.GetSpaceCount()
+	pageCount := h.confluenceScraper.GetPageCount()
+
+	html := fmt.Sprintf(`
 		<table class="status-table">
 			<tr>
 				<td class="status-label">Projects Scraped</td>
-				<td class="status-value">0</td>
+				<td class="status-value">%d</td>
 			</tr>
 			<tr>
 				<td class="status-label">Issues Scraped</td>
-				<td class="status-value">0</td>
+				<td class="status-value">%d</td>
+			</tr>
+			<tr>
+				<td class="status-label">Confluence Spaces</td>
+				<td class="status-value">%d</td>
 			</tr>
 			<tr>
 				<td class="status-label">Confluence Pages</td>
-				<td class="status-value">0</td>
-			</tr>
-			<tr>
-				<td class="status-label">Last Scrape</td>
-				<td class="status-value">Never</td>
+				<td class="status-value">%d</td>
 			</tr>
 		</table>
-	`
+	`, projectCount, issueCount, spaceCount, pageCount)
 
 	fmt.Fprint(w, html)
 }

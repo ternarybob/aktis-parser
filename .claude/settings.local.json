@@ -15,7 +15,11 @@
       "Bash(taskkill:*)",
       "Bash(timeout:*)",
       "Bash(curl:*)",
-      "Bash(tasklist)"
+      "Bash(tasklist)",
+      "Bash(cat:*)",
+      "Bash(for i in {1..5})",
+      "Bash(do echo \"Request $i:\")",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []
