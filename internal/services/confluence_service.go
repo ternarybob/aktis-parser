@@ -144,11 +144,9 @@ func (s *ConfluenceScraperService) GetSpacePageCount(spaceKey string) (int, erro
 
 	// Use 'total' field which contains the total number of pages in the space
 	// The 'size' field only contains the number of results in the current response
-	s.log.Info().
+	s.log.Debug().
 		Str("spaceKey", spaceKey).
-		Int("size", result.Size).
 		Int("total", result.Total).
-		Str("rawResponse", string(data)).
 		Msg("Retrieved page count from API")
 
 	return result.Total, nil
@@ -437,6 +435,39 @@ func (s *ConfluenceScraperService) scrapeSpacePages(spaceKey string) error {
 	if s.uiLog != nil {
 		s.uiLog.BroadcastUILog("success", fmt.Sprintf("Completed: %d pages from %s", totalPages, spaceKey))
 	}
+
+	// Update the space's pageCount in database with actual count
+	err = s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("confluence_spaces"))
+		if bucket == nil {
+			return nil
+		}
+
+		spaceData := bucket.Get([]byte(spaceKey))
+		if spaceData == nil {
+			return nil
+		}
+
+		var space map[string]interface{}
+		if err := json.Unmarshal(spaceData, &space); err != nil {
+			return err
+		}
+
+		space["pageCount"] = totalPages
+		updatedData, err := json.Marshal(space)
+		if err != nil {
+			return err
+		}
+
+		return bucket.Put([]byte(spaceKey), updatedData)
+	})
+
+	if err != nil {
+		s.log.Warn().Err(err).Str("spaceKey", spaceKey).Msg("Failed to update space page count")
+	} else {
+		s.log.Info().Str("spaceKey", spaceKey).Int("pageCount", totalPages).Msg("Updated space with actual page count")
+	}
+
 	return nil
 }
 

@@ -689,6 +689,9 @@
                                 pagesLoader.style.display = 'none';
                                 displayPages(validPages);
                                 showNotification(`Loaded ${validPages.length} pages`, 'success');
+
+                                // Refresh space list to show updated page counts
+                                loadSpaces();
                             }
                         }
                     }
