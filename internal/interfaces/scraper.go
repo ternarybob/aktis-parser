@@ -5,31 +5,93 @@ import (
 	"time"
 )
 
-// Scraper defines the interface for all scraper implementations
-type Scraper interface {
-	// UpdateAuth updates the scraper's authentication state
+// AuthService manages authentication state and HTTP client configuration
+type AuthService interface {
+	// UpdateAuth updates authentication state and configures HTTP client
 	UpdateAuth(authData *AuthData) error
 
-	// ScrapeAll performs a full scrape of all data sources
-	ScrapeAll() error
+	// IsAuthenticated checks if valid authentication exists
+	IsAuthenticated() bool
 
-	// ScrapeProjects scrapes Jira projects and their issues
+	// LoadAuth loads authentication from storage
+	LoadAuth() (*AuthData, error)
+
+	// GetHTTPClient returns configured HTTP client with cookies
+	GetHTTPClient() *http.Client
+
+	// GetBaseURL returns the base URL for API requests
+	GetBaseURL() string
+
+	// GetUserAgent returns the user agent string
+	GetUserAgent() string
+
+	// GetCloudID returns the Atlassian cloud ID
+	GetCloudID() string
+
+	// GetAtlToken returns the atl_token for CSRF protection
+	GetAtlToken() string
+}
+
+// BaseScraper defines common methods for all scraper implementations
+type BaseScraper interface {
+	// Close closes the scraper and releases resources
+	Close() error
+}
+
+// Scraper is a unified interface for backward compatibility with handlers
+// Handlers use type assertions to access specific methods from JiraScraper or ConfluenceScraper
+type Scraper interface {
+	BaseScraper
+	ScrapeAll() error
+	ScrapeProjects() error
+}
+
+// JiraScraper defines the interface for Jira scraping operations
+type JiraScraper interface {
+	BaseScraper
+
+	// ScrapeProjects scrapes Jira projects with issue counts
 	ScrapeProjects() error
 
-	// ScrapeConfluence scrapes Confluence spaces and pages
-	ScrapeConfluence() error
+	// GetProjectIssues retrieves all issues for a given project
+	GetProjectIssues(projectKey string) error
 
-	// IsAuthenticated checks if the scraper has valid authentication
-	IsAuthenticated() bool
+	// GetProjectIssueCount returns the total count of issues for a project
+	GetProjectIssueCount(projectKey string) (int, error)
+
+	// DeleteProjectIssues deletes all issues for a given project
+	DeleteProjectIssues(projectKey string) error
+
+	// ClearProjectsCache deletes all projects from the database
+	ClearProjectsCache() error
 
 	// GetJiraData returns all Jira data (projects and issues)
 	GetJiraData() (map[string]interface{}, error)
+}
 
-	// GetConfluenceData returns all Confluence data (pages)
+// ConfluenceScraper defines the interface for Confluence scraping operations
+type ConfluenceScraper interface {
+	BaseScraper
+
+	// ScrapeConfluence scrapes Confluence spaces with page counts
+	ScrapeConfluence() error
+
+	// GetSpacePages fetches pages for a specific Confluence space
+	GetSpacePages(spaceKey string) error
+
+	// GetSpacePageCount returns the total count of pages for a space
+	GetSpacePageCount(spaceKey string) (int, error)
+
+	// ClearSpacesCache deletes all Confluence spaces from the database
+	ClearSpacesCache() error
+
+	// GetConfluenceData returns all Confluence data (spaces and pages)
 	GetConfluenceData() (map[string]interface{}, error)
+}
 
-	// Close closes the scraper and releases resources
-	Close() error
+// ClearableData defines interface for services that can clear their data
+type ClearableData interface {
+	ClearAllData() error
 }
 
 // ExtensionCookie represents a cookie from the browser extension

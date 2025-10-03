@@ -11,16 +11,20 @@ import (
 )
 
 type ScraperHandler struct {
-	scraper   interfaces.Scraper
-	logger    arbor.ILogger
-	wsHandler *WebSocketHandler
+	authService       interfaces.AuthService
+	jiraScraper       interfaces.JiraScraper
+	confluenceScraper interfaces.ConfluenceScraper
+	logger            arbor.ILogger
+	wsHandler         *WebSocketHandler
 }
 
-func NewScraperHandler(s interfaces.Scraper, ws *WebSocketHandler) *ScraperHandler {
+func NewScraperHandler(authService interfaces.AuthService, jira interfaces.JiraScraper, confluence interfaces.ConfluenceScraper, ws *WebSocketHandler) *ScraperHandler {
 	return &ScraperHandler{
-		scraper:   s,
-		logger:    common.GetLogger(),
-		wsHandler: ws,
+		authService:       authService,
+		jiraScraper:       jira,
+		confluenceScraper: confluence,
+		logger:            common.GetLogger(),
+		wsHandler:         ws,
 	}
 }
 
@@ -38,11 +42,14 @@ func (h *ScraperHandler) AuthUpdateHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := h.scraper.UpdateAuth(&authData); err != nil {
-		h.logger.Error().Err(err).Msg("Failed to update auth")
+	// Update auth via centralized AuthService (shared by both scrapers)
+	if err := h.authService.UpdateAuth(&authData); err != nil {
+		h.logger.Error().Err(err).Msg("Failed to update authentication")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	h.logger.Info().Str("baseURL", authData.BaseURL).Msg("Authentication updated successfully")
 
 	// Broadcast auth data to WebSocket clients
 	if h.wsHandler != nil {
@@ -64,7 +71,15 @@ func (h *ScraperHandler) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go h.scraper.ScrapeAll()
+	// Trigger scraping on both scrapers
+	go func() {
+		if err := h.jiraScraper.ScrapeProjects(); err != nil {
+			h.logger.Error().Err(err).Msg("Jira scraping error")
+		}
+		if err := h.confluenceScraper.ScrapeConfluence(); err != nil {
+			h.logger.Error().Err(err).Msg("Confluence scraping error")
+		}
+	}()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -81,7 +96,7 @@ func (h *ScraperHandler) ScrapeProjectsHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if !h.scraper.IsAuthenticated() {
+	if !h.authService.IsAuthenticated() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -92,7 +107,7 @@ func (h *ScraperHandler) ScrapeProjectsHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	go func() {
-		if err := h.scraper.ScrapeProjects(); err != nil {
+		if err := h.jiraScraper.ScrapeProjects(); err != nil {
 			h.logger.Error().Err(err).Msg("Project scrape error")
 		}
 	}()
@@ -112,7 +127,7 @@ func (h *ScraperHandler) ScrapeSpacesHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if !h.scraper.IsAuthenticated() {
+	if !h.authService.IsAuthenticated() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -123,7 +138,7 @@ func (h *ScraperHandler) ScrapeSpacesHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	go func() {
-		if err := h.scraper.ScrapeConfluence(); err != nil {
+		if err := h.confluenceScraper.ScrapeConfluence(); err != nil {
 			h.logger.Error().Err(err).Msg("Confluence scrape error")
 		}
 	}()
@@ -143,7 +158,7 @@ func (h *ScraperHandler) RefreshProjectsCacheHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	if !h.scraper.IsAuthenticated() {
+	if !h.authService.IsAuthenticated() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -159,7 +174,7 @@ func (h *ScraperHandler) RefreshProjectsCacheHandler(w http.ResponseWriter, r *h
 	}
 
 	// Clear cache synchronously first, so immediate API calls won't see old data
-	if clearer, ok := h.scraper.(projectCacheClearer); ok {
+	if clearer, ok := h.jiraScraper.(projectCacheClearer); ok {
 		if err := clearer.ClearProjectsCache(); err != nil {
 			h.logger.Error().Err(err).Msg("Failed to clear projects cache")
 			w.Header().Set("Content-Type", "application/json")
@@ -174,7 +189,7 @@ func (h *ScraperHandler) RefreshProjectsCacheHandler(w http.ResponseWriter, r *h
 
 	// Re-sync projects in background
 	go func() {
-		if err := h.scraper.ScrapeProjects(); err != nil {
+		if err := h.jiraScraper.ScrapeProjects(); err != nil {
 			h.logger.Error().Err(err).Msg("Project scrape error after cache refresh")
 		}
 	}()
@@ -194,7 +209,7 @@ func (h *ScraperHandler) GetProjectIssuesHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if !h.scraper.IsAuthenticated() {
+	if !h.authService.IsAuthenticated() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -224,7 +239,7 @@ func (h *ScraperHandler) GetProjectIssuesHandler(w http.ResponseWriter, r *http.
 
 	// Fetch issues for each project in parallel using goroutines
 	go func() {
-		if getter, ok := h.scraper.(projectIssueGetter); ok {
+		if getter, ok := h.jiraScraper.(projectIssueGetter); ok {
 			var wg sync.WaitGroup
 
 			for _, projectKey := range request.ProjectKeys {
@@ -265,7 +280,7 @@ func (h *ScraperHandler) RefreshSpacesCacheHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	if !h.scraper.IsAuthenticated() {
+	if !h.authService.IsAuthenticated() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -279,7 +294,7 @@ func (h *ScraperHandler) RefreshSpacesCacheHandler(w http.ResponseWriter, r *htt
 		ClearSpacesCache() error
 	}
 
-	if clearer, ok := h.scraper.(spaceCacheClearer); ok {
+	if clearer, ok := h.confluenceScraper.(spaceCacheClearer); ok {
 		if err := clearer.ClearSpacesCache(); err != nil {
 			h.logger.Error().Err(err).Msg("Failed to clear spaces cache")
 			w.Header().Set("Content-Type", "application/json")
@@ -293,7 +308,7 @@ func (h *ScraperHandler) RefreshSpacesCacheHandler(w http.ResponseWriter, r *htt
 	}
 
 	go func() {
-		if err := h.scraper.ScrapeConfluence(); err != nil {
+		if err := h.confluenceScraper.ScrapeConfluence(); err != nil {
 			h.logger.Error().Err(err).Msg("Confluence scrape error after cache refresh")
 		}
 	}()
@@ -313,7 +328,7 @@ func (h *ScraperHandler) GetSpacePagesHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if !h.scraper.IsAuthenticated() {
+	if !h.authService.IsAuthenticated() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -341,7 +356,7 @@ func (h *ScraperHandler) GetSpacePagesHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	go func() {
-		if getter, ok := h.scraper.(spacePageGetter); ok {
+		if getter, ok := h.confluenceScraper.(spacePageGetter); ok {
 			var wg sync.WaitGroup
 
 			for _, spaceKey := range request.SpaceKeys {
@@ -386,25 +401,47 @@ func (h *ScraperHandler) ClearAllDataHandler(w http.ResponseWriter, r *http.Requ
 		ClearAllData() error
 	}
 
-	if clearer, ok := h.scraper.(dataClearer); ok {
-		if err := clearer.ClearAllData(); err != nil {
-			h.logger.Error().Err(err).Msg("Failed to clear data")
+	// Clear data from both scrapers
+	jiraClearer, jiraOk := h.jiraScraper.(dataClearer)
+	confluenceClearer, confluenceOk := h.confluenceScraper.(dataClearer)
+
+	if !jiraOk && !confluenceOk {
+		http.Error(w, "Clear data not supported", http.StatusNotImplemented)
+		return
+	}
+
+	// Clear Jira data
+	if jiraOk {
+		if err := jiraClearer.ClearAllData(); err != nil {
+			h.logger.Error().Err(err).Msg("Failed to clear Jira data")
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(map[string]string{
 				"status":  "error",
-				"message": "Failed to clear data",
+				"message": "Failed to clear Jira data",
 			})
 			return
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
-			"status":  "success",
-			"message": "All data cleared successfully",
-		})
-	} else {
-		http.Error(w, "Clear data not supported", http.StatusNotImplemented)
 	}
+
+	// Clear Confluence data
+	if confluenceOk {
+		if err := confluenceClearer.ClearAllData(); err != nil {
+			h.logger.Error().Err(err).Msg("Failed to clear Confluence data")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "error",
+				"message": "Failed to clear Confluence data",
+			})
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "success",
+		"message": "All data cleared successfully",
+	})
 }

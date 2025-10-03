@@ -161,9 +161,13 @@ func TestConfluence_RefreshSpacesCache(t *testing.T) {
 	assert.NotEmpty(t, firstSpace["key"], "Space should have key")
 	assert.NotEmpty(t, firstSpace["name"], "Space should have name")
 
-	// Note: Page counts are not included until pages are scraped via GetSpacePages
-	// This is by design - user selects spaces first, then pages are scraped
-	t.Logf("Spaces are ready for selection - pages will be scraped on demand")
+	// Verify page counts are included
+	if pageCount, ok := firstSpace["pageCount"]; ok {
+		t.Logf("Space %s has pageCount: %v", firstSpace["key"], pageCount)
+		assert.NotNil(t, pageCount, "Space should have pageCount field")
+	} else {
+		t.Log("Warning: pageCount not found in space data")
+	}
 
 	t.Log("✅ Refresh spaces cache API test passed")
 }

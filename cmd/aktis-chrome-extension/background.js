@@ -36,11 +36,54 @@ async function captureAuthData() {
   // Get cookies for the domain
   const cookies = await chrome.cookies.getAll({ url: baseURL });
 
-  // Extract tokens from cookies
-  const tokens = {};
+  // Inject content script to extract cloudId and atlToken from page
+  const [{ result: pageTokens }] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: () => {
+      const tokens = {};
+
+      // Try to get cloudId from window object
+      if (window.cloudId) {
+        tokens.cloudId = window.cloudId;
+      }
+
+      // Try to get from meta tags
+      const metaCloudId = document.querySelector('meta[name="ajs-cloud-id"]');
+      if (metaCloudId && metaCloudId.content) {
+        tokens.cloudId = metaCloudId.content;
+      }
+
+      // Try to get atlToken
+      const atlTokenMeta = document.querySelector('meta[name="atl-token"]');
+      if (atlTokenMeta && atlTokenMeta.content) {
+        tokens.atlToken = atlTokenMeta.content;
+      }
+
+      // Try localStorage
+      try {
+        const cloudIdStorage = localStorage.getItem('cloudId');
+        if (cloudIdStorage) tokens.cloudId = cloudIdStorage;
+
+        const atlTokenStorage = localStorage.getItem('atlToken');
+        if (atlTokenStorage) tokens.atlToken = atlTokenStorage;
+      } catch (e) {
+        // localStorage might be blocked
+      }
+
+      return tokens;
+    }
+  });
+
+  // Merge page tokens with any tokens from cookies
+  const tokens = { ...pageTokens };
   for (const cookie of cookies) {
     if (cookie.name.includes('cloud') || cookie.name.includes('atl')) {
-      tokens[cookie.name] = cookie.value;
+      if (!tokens.cloudId && cookie.name.includes('cloud')) {
+        tokens.cloudId = cookie.value;
+      }
+      if (!tokens.atlToken && cookie.name.includes('atl')) {
+        tokens.atlToken = cookie.value;
+      }
     }
   }
 

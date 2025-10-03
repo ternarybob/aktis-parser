@@ -12,6 +12,7 @@ import (
 	"aktis-parser/internal/common"
 	"aktis-parser/internal/handlers"
 	"aktis-parser/internal/services"
+	bolt "go.etcd.io/bbolt"
 )
 
 func main() {
@@ -39,28 +40,47 @@ func main() {
 		serviceURL,
 	)
 
-	// 4. Initialize Jira service
-	jiraService, err := services.NewJiraScraper(config.Storage.DatabasePath, logger)
+	// 4. Initialize database and AuthService
+	db, err := bolt.Open(config.Storage.DatabasePath, 0600, nil)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to open database")
+	}
+	defer db.Close()
+
+	// Initialize centralized AuthService (shared by all scrapers)
+	authService, err := services.NewAtlassianAuthService(db, logger)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to initialize AuthService")
+	}
+
+	// Initialize Jira service (shares DB and AuthService)
+	jiraService, err := services.NewJiraScraper(db, authService, logger)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to initialize Jira service")
 	}
-	defer jiraService.Close()
+
+	// Initialize Confluence service (shares DB and AuthService)
+	confluenceService, err := services.NewConfluenceScraperWithDB(db, authService, logger)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to initialize Confluence service")
+	}
 
 	// 5. Initialize handlers
 	apiHandler := handlers.NewAPIHandler()
 	uiHandler := handlers.NewUIHandler()
 	wsHandler := handlers.NewWebSocketHandler()
-	scraperHandler := handlers.NewScraperHandler(jiraService, wsHandler)
-	dataHandler := handlers.NewDataHandler(jiraService)
+	scraperHandler := handlers.NewScraperHandler(authService, jiraService, confluenceService, wsHandler)
+	dataHandler := handlers.NewDataHandler(jiraService, confluenceService)
 
-	// Set UI logger for service
+	// Set UI logger for services
 	jiraService.SetUILogger(wsHandler)
+	confluenceService.SetUILogger(wsHandler)
 
 	// Set auth loader for WebSocket handler (so it can send auth on connect)
-	wsHandler.SetAuthLoader(jiraService)
+	wsHandler.SetAuthLoader(authService)
 
 	// Load stored authentication if available (just to log status)
-	if _, err := jiraService.LoadAuth(); err == nil {
+	if _, err := authService.LoadAuth(); err == nil {
 		logger.Info().Msg("Loaded stored authentication from database")
 	} else {
 		logger.Debug().Err(err).Msg("No stored authentication found")

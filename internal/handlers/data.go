@@ -10,14 +10,16 @@ import (
 )
 
 type DataHandler struct {
-	scraper interfaces.Scraper
-	logger  arbor.ILogger
+	jiraScraper       interfaces.JiraScraper
+	confluenceScraper interfaces.ConfluenceScraper
+	logger            arbor.ILogger
 }
 
-func NewDataHandler(s interfaces.Scraper) *DataHandler {
+func NewDataHandler(jira interfaces.JiraScraper, confluence interfaces.ConfluenceScraper) *DataHandler {
 	return &DataHandler{
-		scraper: s,
-		logger:  common.GetLogger(),
+		jiraScraper:       jira,
+		confluenceScraper: confluence,
+		logger:            common.GetLogger(),
 	}
 }
 
@@ -28,7 +30,7 @@ func (h *DataHandler) GetJiraDataHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	data, err := h.scraper.GetJiraData()
+	data, err := h.jiraScraper.GetJiraData()
 	if err != nil {
 		h.logger.Error().Err(err).Msg("Failed to fetch Jira data")
 		http.Error(w, "Failed to fetch Jira data", http.StatusInternalServerError)
@@ -51,7 +53,7 @@ func (h *DataHandler) GetJiraIssuesHandler(w http.ResponseWriter, r *http.Reques
 
 	h.logger.Info().Strs("projectKeys", projectKeys).Msg("GetJiraIssuesHandler called")
 
-	data, err := h.scraper.GetJiraData()
+	data, err := h.jiraScraper.GetJiraData()
 	if err != nil {
 		h.logger.Error().Err(err).Msg("Failed to fetch Jira data")
 		http.Error(w, "Failed to fetch Jira data", http.StatusInternalServerError)
@@ -155,7 +157,7 @@ func (h *DataHandler) GetConfluenceDataHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	data, err := h.scraper.GetConfluenceData()
+	data, err := h.confluenceScraper.GetConfluenceData()
 	if err != nil {
 		h.logger.Error().Err(err).Msg("Failed to fetch Confluence data")
 		http.Error(w, "Failed to fetch Confluence data", http.StatusInternalServerError)
@@ -177,7 +179,7 @@ func (h *DataHandler) GetConfluencePagesHandler(w http.ResponseWriter, r *http.R
 
 	h.logger.Info().Strs("spaceKeys", spaceKeys).Msg("GetConfluencePagesHandler called")
 
-	data, err := h.scraper.GetConfluenceData()
+	data, err := h.confluenceScraper.GetConfluenceData()
 	if err != nil {
 		h.logger.Error().Err(err).Msg("Failed to fetch Confluence data")
 		http.Error(w, "Failed to fetch Confluence data", http.StatusInternalServerError)
