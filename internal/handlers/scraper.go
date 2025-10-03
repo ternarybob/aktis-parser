@@ -323,12 +323,16 @@ func (h *ScraperHandler) RefreshSpacesCacheHandler(w http.ResponseWriter, r *htt
 
 // GetSpacePagesHandler fetches pages for selected spaces
 func (h *ScraperHandler) GetSpacePagesHandler(w http.ResponseWriter, r *http.Request) {
+	h.logger.Info().Msg("GetSpacePagesHandler called")
+
 	if r.Method != "POST" {
+		h.logger.Warn().Str("method", r.Method).Msg("Invalid method for GetSpacePagesHandler")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	if !h.authService.IsAuthenticated() {
+		h.logger.Warn().Msg("GetSpacePagesHandler called but not authenticated")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -342,11 +346,15 @@ func (h *ScraperHandler) GetSpacePagesHandler(w http.ResponseWriter, r *http.Req
 		SpaceKeys []string `json:"spaceKeys"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		h.logger.Error().Err(err).Msg("Failed to decode request body")
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
+	h.logger.Info().Strs("spaceKeys", request.SpaceKeys).Msg("Received request to fetch pages")
+
 	if len(request.SpaceKeys) == 0 {
+		h.logger.Warn().Msg("No spaces specified in request")
 		http.Error(w, "No spaces specified", http.StatusBadRequest)
 		return
 	}

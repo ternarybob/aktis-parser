@@ -130,7 +130,8 @@ func (s *ConfluenceScraperService) GetSpacePageCount(spaceKey string) (int, erro
 	}
 
 	var result struct {
-		Size int `json:"size"`
+		Size  int `json:"size"`
+		Total int `json:"total"`
 	}
 	if err := json.Unmarshal(data, &result); err != nil {
 		s.log.Error().
@@ -141,12 +142,16 @@ func (s *ConfluenceScraperService) GetSpacePageCount(spaceKey string) (int, erro
 		return -1, fmt.Errorf("failed to parse response: %w", err)
 	}
 
+	// Use 'total' field which contains the total number of pages in the space
+	// The 'size' field only contains the number of results in the current response
 	s.log.Info().
 		Str("spaceKey", spaceKey).
-		Int("count", result.Size).
-		Msg("Retrieved page count")
+		Int("size", result.Size).
+		Int("total", result.Total).
+		Str("rawResponse", string(data)).
+		Msg("Retrieved page count from API")
 
-	return result.Size, nil
+	return result.Total, nil
 }
 
 // ScrapeConfluence scrapes all Confluence spaces and page counts
@@ -273,27 +278,17 @@ func (s *ConfluenceScraperService) scrapeSpacePages(spaceKey string) error {
 		s.uiLog.BroadcastUILog("info", fmt.Sprintf("Fetching pages from space: %s", spaceKey))
 	}
 
-	// Get total page count first
+	// Get total page count first (note: Confluence API page count is unreliable, so we fetch anyway)
 	pageCount, err := s.GetSpacePageCount(spaceKey)
 	if err != nil {
 		s.log.Warn().Err(err).Str("spaceKey", spaceKey).Msg("Could not get page count, will fetch until empty")
 		pageCount = -1
+	} else {
+		s.log.Info().Str("spaceKey", spaceKey).Int("pageCount", pageCount).Msg("API reported page count (may be inaccurate)")
 	}
 
-	if pageCount == 0 {
-		s.log.Info().Str("spaceKey", spaceKey).Msg("Space has no pages")
-		if s.uiLog != nil {
-			s.uiLog.BroadcastUILog("info", fmt.Sprintf("Space %s has no pages", spaceKey))
-		}
-		return nil
-	}
-
-	if pageCount > 0 {
-		s.log.Info().Str("spaceKey", spaceKey).Int("pageCount", pageCount).Msg("Space has pages to fetch")
-		if s.uiLog != nil {
-			s.uiLog.BroadcastUILog("info", fmt.Sprintf("Space %s has %d pages to fetch", spaceKey, pageCount))
-		}
-	}
+	// Always attempt to fetch pages regardless of reported count
+	// The pagination loop will naturally stop when no pages are returned
 
 	limit := 25
 	batchSize := 5 // Number of concurrent requests
@@ -312,6 +307,8 @@ func (s *ConfluenceScraperService) scrapeSpacePages(spaceKey string) error {
 		}, batchSize)
 
 		actualBatchSize := batchSize
+		// Only use pageCount for optimization if we have a valid count (> 0)
+		// If pageCount is 0 or -1 (unknown), fetch until we get empty results
 		if pageCount > 0 {
 			remaining := pageCount - totalPages
 			if remaining <= 0 {
@@ -324,6 +321,8 @@ func (s *ConfluenceScraperService) scrapeSpacePages(spaceKey string) error {
 				}
 			}
 		}
+		// If pageCount is 0 or negative, actualBatchSize remains at batchSize
+		// and we'll fetch until we get no results
 
 		for i := 0; i < actualBatchSize; i++ {
 			wg.Add(1)
@@ -332,7 +331,7 @@ func (s *ConfluenceScraperService) scrapeSpacePages(spaceKey string) error {
 			go func(index int, batchStart int) {
 				defer wg.Done()
 
-				path := fmt.Sprintf("/wiki/rest/api/content?spaceKey=%s&start=%d&limit=%d&expand=body.storage",
+				path := fmt.Sprintf("/wiki/rest/api/content?spaceKey=%s&start=%d&limit=%d&expand=body.storage,space",
 					spaceKey, batchStart, limit)
 
 				s.log.Debug().Str("path", path).Int("batch", index).Msg("Requesting pages batch")

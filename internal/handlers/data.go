@@ -195,7 +195,13 @@ func (h *DataHandler) GetConfluencePagesHandler(w http.ResponseWriter, r *http.R
 		filteredPages := []interface{}{}
 
 		if pageList, ok := pages.([]map[string]interface{}); ok {
-			for _, page := range pageList {
+			h.logger.Info().Int("totalPages", len(pageList)).Msg("Page list type: []map[string]interface{}")
+			for i, page := range pageList {
+				if i == 0 {
+					// Log first page structure for debugging
+					pageJSON, _ := json.Marshal(page)
+					h.logger.Info().Str("firstPage", string(pageJSON)).Msg("First page structure")
+				}
 				if space, ok := page["space"].(map[string]interface{}); ok {
 					if key, ok := space["key"].(string); ok {
 						for _, sk := range spaceKeys {
@@ -209,7 +215,13 @@ func (h *DataHandler) GetConfluencePagesHandler(w http.ResponseWriter, r *http.R
 			}
 			pages = filteredPages
 		} else if pageList, ok := pages.([]interface{}); ok {
-			for _, page := range pageList {
+			h.logger.Info().Int("totalPages", len(pageList)).Msg("Page list type: []interface{}")
+			for i, page := range pageList {
+				if i == 0 {
+					// Log first page structure for debugging
+					pageJSON, _ := json.Marshal(page)
+					h.logger.Info().Str("firstPage", string(pageJSON)).Msg("First page structure")
+				}
 				if pageMap, ok := page.(map[string]interface{}); ok {
 					if space, ok := pageMap["space"].(map[string]interface{}); ok {
 						if key, ok := space["key"].(string); ok {
@@ -224,6 +236,8 @@ func (h *DataHandler) GetConfluencePagesHandler(w http.ResponseWriter, r *http.R
 				}
 			}
 			pages = filteredPages
+		} else {
+			h.logger.Warn().Msgf("Unexpected pages type: %T", pages)
 		}
 
 		h.logger.Info().

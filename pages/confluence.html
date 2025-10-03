@@ -581,7 +581,10 @@
 
         // Get pages for selected spaces
         async function getPages() {
+            console.log('getPages() called, selectedSpaces:', Array.from(selectedSpaces));
+
             if (selectedSpaces.size === 0) {
+                console.warn('No spaces selected');
                 showNotification('Please select at least one space', 'error');
                 return;
             }
@@ -607,6 +610,8 @@
 
             try {
                 const spaceKeys = Array.from(selectedSpaces);
+                console.log('Sending POST to /api/spaces/get-pages with:', spaceKeys);
+
                 const response = await fetch('/api/spaces/get-pages', {
                     method: 'POST',
                     headers: {
@@ -615,10 +620,16 @@
                     body: JSON.stringify({ spaceKeys: spaceKeys })
                 });
 
+                console.log('Response status:', response.status, response.statusText);
+
                 if (!response.ok) {
-                    throw new Error('Failed to fetch pages');
+                    const errorText = await response.text();
+                    console.error('Response error:', errorText);
+                    throw new Error('Failed to fetch pages: ' + errorText);
                 }
 
+                const result = await response.json();
+                console.log('Response:', result);
                 showNotification('Page fetching started...', 'info');
 
                 startPollingPages(spaceKeys);
