@@ -71,6 +71,7 @@ func main() {
 	wsHandler := handlers.NewWebSocketHandler()
 	scraperHandler := handlers.NewScraperHandler(authService, jiraService, confluenceService, wsHandler)
 	dataHandler := handlers.NewDataHandler(jiraService, confluenceService)
+	collectorHandler := handlers.NewCollectorHandler(jiraService, confluenceService, logger)
 
 	// Set UI logger for services
 	jiraService.SetUILogger(wsHandler)
@@ -117,6 +118,10 @@ func main() {
 	http.HandleFunc("/api/data/jira/issues", dataHandler.GetJiraIssuesHandler)
 	http.HandleFunc("/api/data/confluence", dataHandler.GetConfluenceDataHandler)
 	http.HandleFunc("/api/data/confluence/pages", dataHandler.GetConfluencePagesHandler)
+	http.HandleFunc("/api/collector/projects", collectorHandler.GetProjectsHandler)
+	http.HandleFunc("/api/collector/spaces", collectorHandler.GetSpacesHandler)
+	http.HandleFunc("/api/collector/issues", collectorHandler.GetIssuesHandler)
+	http.HandleFunc("/api/collector/pages", collectorHandler.GetPagesHandler)
 	http.HandleFunc("/api/version", apiHandler.VersionHandler)
 	http.HandleFunc("/api/health", apiHandler.HealthHandler)
 
