@@ -68,16 +68,21 @@ try {
     Write-Host "Warning: Service may not be responding" -ForegroundColor Yellow
 }
 
-# Determine test directories
+# Determine test directories and test filter
 $testDirs = @()
+$testFilter = $null
+
 if ($Type -eq "all") {
     $testDirs = @("api", "ui")
 } elseif ($Type -eq "api") {
     $testDirs = @("api")
 } elseif ($Type -eq "ui") {
     $testDirs = @("ui")
+} elseif ($Type -eq "confluence") {
+    $testDirs = @("api", "ui")
+    $testFilter = "Confluence"
 } else {
-    Write-Host "Invalid test type. Use: all, api, or ui" -ForegroundColor Red
+    Write-Host "Invalid test type. Use: all, api, ui, or confluence" -ForegroundColor Red
     exit 1
 }
 
@@ -99,6 +104,8 @@ foreach ($dir in $testDirs) {
 
     if ($Test) {
         $testCmd += " -run $Test"
+    } elseif ($testFilter) {
+        $testCmd += " -run $testFilter"
     }
 
     # Create subdirectory for this test type

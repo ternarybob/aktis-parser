@@ -6,6 +6,9 @@
     <title>Jira Project Management - Aktis Parser</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="/static/common.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
 </head>
 <body>
     <!-- Top Navbar -->
@@ -109,6 +112,15 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Issue Detail Section -->
+                <div class="card" id="issue-detail-section">
+                    <div class="card-header">
+                        <div class="card-title">Issue Detail</div>
+                        <span id="selected-issue-key" class="selection-count"></span>
+                    </div>
+                    <pre id="issue-detail-json" style="margin: 0; padding: 15px; background: #ffffff; color: #333333; font-family: 'Courier New', monospace; font-size: 12px; max-height: 500px; overflow: auto; border: none;"><code class="language-json"></code></pre>
+                </div>
             </div>
         </div>
 
@@ -134,12 +146,56 @@
         let allProjects = [];
         let filteredProjects = [];
         let selectedProjects = new Set();
+        let selectedIssue = null;
+        let allIssues = [];
         let isSyncing = false;
         let currentPollInterval = null;  // Track active polling interval
         let currentPollProjectKeys = []; // Track which projects we're currently polling for
         let ws;
         let reconnectInterval;
         let displayedLogs = new Set();
+
+        // URL parameter management
+        function _getProjectsFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const projectsParam = params.get('projects');
+
+            if (!projectsParam) return null;
+            if (projectsParam === 'ALL') return 'ALL';
+
+            return projectsParam.split(',').filter(id => id.trim());
+        }
+
+        function _getIssueFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('issue');
+        }
+
+        function _updateUrlWithProjects(projectIds) {
+            const url = new URL(window.location);
+
+            if (!projectIds || projectIds.length === 0) {
+                url.searchParams.delete('projects');
+            } else if (projectIds === 'ALL') {
+                url.searchParams.set('projects', 'ALL');
+            } else {
+                url.searchParams.set('projects', projectIds.join(','));
+            }
+
+            window.history.replaceState({}, '', url);
+        }
+
+        function _updateUrlWithIssue(issueKey) {
+            const url = new URL(window.location);
+
+            if (!issueKey) {
+                url.searchParams.delete('issue');
+            } else {
+                url.searchParams.set('issue', issueKey);
+            }
+
+            window.history.replaceState({}, '', url);
+        }
 
         // WebSocket connection
         function connectWebSocket() {
@@ -281,8 +337,27 @@
                 }
 
                 filteredProjects = [...allProjects];
+
+                // Restore selection from URL
+                const urlProjects = _getProjectsFromUrl();
+                if (urlProjects === 'ALL') {
+                    allProjects.forEach(p => selectedProjects.add(p.key));
+                } else if (urlProjects && urlProjects.length > 0) {
+                    urlProjects.forEach(key => {
+                        if (allProjects.find(p => p.key === key)) {
+                            selectedProjects.add(key);
+                        }
+                    });
+                }
+
                 renderProjects();
                 updateSelectionCount();
+                updateButtonStates();
+
+                // Auto-load issues if projects are selected
+                if (selectedProjects.size > 0) {
+                    loadIssuesFromDatabase();
+                }
 
             } catch (error) {
                 console.error('Error loading projects:', error);
@@ -346,9 +421,20 @@
             renderProjects();
             updateSelectionCount();
             updateButtonStates();
+            _syncUrlWithSelection();
 
             // Auto-load issues from local database when project selection changes
             loadIssuesFromDatabase();
+        }
+
+        function _syncUrlWithSelection() {
+            if (selectedProjects.size === 0) {
+                _updateUrlWithProjects(null);
+            } else if (selectedProjects.size === allProjects.length && allProjects.length > 0) {
+                _updateUrlWithProjects('ALL');
+            } else {
+                _updateUrlWithProjects(Array.from(selectedProjects));
+            }
         }
 
         function updateSelectionCount() {
@@ -394,6 +480,7 @@
             renderProjects();
             updateSelectionCount();
             updateButtonStates();
+            _syncUrlWithSelection();
 
             // Auto-load issues from local database when selection changes
             loadIssuesFromDatabase();
@@ -690,6 +777,8 @@
 
             console.log('displayIssues called with', issues ? issues.length : 0, 'issues');
 
+            allIssues = issues || [];
+
             if (!issues || issues.length === 0) {
                 console.log('Showing empty state');
                 tbody.innerHTML = `
@@ -700,20 +789,24 @@
                     </tr>
                 `;
                 issuesCount.textContent = '0 issues';
+                _clearIssueDetail();
                 return;
             }
 
             console.log('Rendering', issues.length, 'issues');
 
-            tbody.innerHTML = issues.map(issue => {
+            tbody.innerHTML = issues.map((issue, index) => {
                 const fields = issue.fields || {};
                 const project = fields.project || {};
                 const issueType = fields.issuetype || {};
                 const status = fields.status || {};
                 const summary = fields.summary || '';
+                const isSelected = selectedIssue && selectedIssue.key === issue.key;
 
                 return `
-                    <tr>
+                    <tr onclick="_selectIssue(${index})"
+                        style="cursor: pointer; background-color: ${isSelected ? '#e3f2fd' : 'transparent'};"
+                        class="${isSelected ? 'selected-issue' : ''}">
                         <td>${project.key || 'N/A'}</td>
                         <td>${issue.key || 'N/A'}</td>
                         <td>${issueType.name || 'N/A'}</td>
@@ -724,6 +817,74 @@
             }).join('');
 
             issuesCount.textContent = `${issues.length} issue${issues.length !== 1 ? 's' : ''}`;
+
+            // Restore issue selection from URL after rendering
+            const urlIssueKey = _getIssueFromUrl();
+            if (urlIssueKey) {
+                const issueIndex = allIssues.findIndex(issue => issue.key === urlIssueKey);
+                if (issueIndex !== -1) {
+                    _selectIssue(issueIndex, false);
+                }
+            }
+        }
+
+        function _selectIssue(index, updateUrl = true) {
+            selectedIssue = allIssues[index];
+            _displayIssueDetail(selectedIssue);
+
+            if (updateUrl) {
+                _updateUrlWithIssue(selectedIssue ? selectedIssue.key : null);
+            }
+
+            // Update highlighting without full re-render
+            _updateIssueHighlighting();
+        }
+
+        function _updateIssueHighlighting() {
+            const tbody = document.getElementById('issues-table-body');
+            const rows = tbody.querySelectorAll('tr');
+
+            rows.forEach((row, index) => {
+                const issue = allIssues[index];
+                if (issue) {
+                    const isSelected = selectedIssue && selectedIssue.key === issue.key;
+                    row.style.backgroundColor = isSelected ? '#e3f2fd' : 'transparent';
+                    if (isSelected) {
+                        row.classList.add('selected-issue');
+                    } else {
+                        row.classList.remove('selected-issue');
+                    }
+                }
+            });
+        }
+
+        function _displayIssueDetail(issue) {
+            const selectedKey = document.getElementById('selected-issue-key');
+            const detailPre = document.getElementById('issue-detail-json');
+            const codeBlock = detailPre.querySelector('code');
+
+            if (!issue) {
+                _clearIssueDetail();
+                return;
+            }
+
+            selectedKey.textContent = issue.key || 'Unknown';
+            const jsonString = JSON.stringify(issue, null, 2);
+            codeBlock.textContent = jsonString;
+
+            if (typeof hljs !== 'undefined') {
+                hljs.highlightElement(codeBlock);
+            }
+        }
+
+        function _clearIssueDetail() {
+            const selectedKey = document.getElementById('selected-issue-key');
+            const detailPre = document.getElementById('issue-detail-json');
+            const codeBlock = detailPre.querySelector('code');
+
+            selectedKey.textContent = '';
+            codeBlock.textContent = '';
+            selectedIssue = null;
         }
 
         function showNotification(message, type) {

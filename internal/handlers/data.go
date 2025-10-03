@@ -148,7 +148,7 @@ func (h *DataHandler) GetJiraIssuesHandler(w http.ResponseWriter, r *http.Reques
 	})
 }
 
-// GetConfluenceDataHandler returns all Confluence data (pages)
+// GetConfluenceDataHandler returns all Confluence data (spaces and pages)
 func (h *DataHandler) GetConfluenceDataHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -164,4 +164,83 @@ func (h *DataHandler) GetConfluenceDataHandler(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
+}
+
+// GetConfluencePagesHandler returns pages optionally filtered by space keys
+func (h *DataHandler) GetConfluencePagesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	spaceKeys := r.URL.Query()["spaceKey"]
+
+	h.logger.Info().Strs("spaceKeys", spaceKeys).Msg("GetConfluencePagesHandler called")
+
+	data, err := h.scraper.GetConfluenceData()
+	if err != nil {
+		h.logger.Error().Err(err).Msg("Failed to fetch Confluence data")
+		http.Error(w, "Failed to fetch Confluence data", http.StatusInternalServerError)
+		return
+	}
+
+	pages := data["pages"]
+	if pages == nil {
+		pages = []interface{}{}
+	}
+
+	if len(spaceKeys) > 0 {
+		filteredPages := []interface{}{}
+
+		if pageList, ok := pages.([]map[string]interface{}); ok {
+			for _, page := range pageList {
+				if space, ok := page["space"].(map[string]interface{}); ok {
+					if key, ok := space["key"].(string); ok {
+						for _, sk := range spaceKeys {
+							if key == sk {
+								filteredPages = append(filteredPages, page)
+								break
+							}
+						}
+					}
+				}
+			}
+			pages = filteredPages
+		} else if pageList, ok := pages.([]interface{}); ok {
+			for _, page := range pageList {
+				if pageMap, ok := page.(map[string]interface{}); ok {
+					if space, ok := pageMap["space"].(map[string]interface{}); ok {
+						if key, ok := space["key"].(string); ok {
+							for _, sk := range spaceKeys {
+								if key == sk {
+									filteredPages = append(filteredPages, page)
+									break
+								}
+							}
+						}
+					}
+				}
+			}
+			pages = filteredPages
+		}
+
+		h.logger.Info().
+			Int("filtered", len(filteredPages)).
+			Strs("spaceKeys", spaceKeys).
+			Msg("Filtered pages by space")
+	}
+
+	returnCount := 0
+	if pageList, ok := pages.([]interface{}); ok {
+		returnCount = len(pageList)
+	}
+	h.logger.Info().
+		Int("returningPageCount", returnCount).
+		Strs("requestedSpaces", spaceKeys).
+		Msg("Returning pages to client")
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"pages": pages,
+	})
 }

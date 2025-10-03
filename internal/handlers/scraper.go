@@ -258,6 +258,121 @@ func (h *ScraperHandler) GetProjectIssuesHandler(w http.ResponseWriter, r *http.
 	})
 }
 
+// RefreshSpacesCacheHandler clears spaces cache and re-syncs from Confluence
+func (h *ScraperHandler) RefreshSpacesCacheHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !h.scraper.IsAuthenticated() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "error",
+			"message": "Not authenticated. Please capture authentication first.",
+		})
+		return
+	}
+
+	type spaceCacheClearer interface {
+		ClearSpacesCache() error
+	}
+
+	if clearer, ok := h.scraper.(spaceCacheClearer); ok {
+		if err := clearer.ClearSpacesCache(); err != nil {
+			h.logger.Error().Err(err).Msg("Failed to clear spaces cache")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "error",
+				"message": "Failed to clear spaces cache",
+			})
+			return
+		}
+	}
+
+	go func() {
+		if err := h.scraper.ScrapeConfluence(); err != nil {
+			h.logger.Error().Err(err).Msg("Confluence scrape error after cache refresh")
+		}
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "started",
+		"message": "Spaces cache refresh started",
+	})
+}
+
+// GetSpacePagesHandler fetches pages for selected spaces
+func (h *ScraperHandler) GetSpacePagesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !h.scraper.IsAuthenticated() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "error",
+			"message": "Not authenticated. Please capture authentication first.",
+		})
+		return
+	}
+
+	var request struct {
+		SpaceKeys []string `json:"spaceKeys"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	if len(request.SpaceKeys) == 0 {
+		http.Error(w, "No spaces specified", http.StatusBadRequest)
+		return
+	}
+
+	type spacePageGetter interface {
+		GetSpacePages(spaceKey string) error
+	}
+
+	go func() {
+		if getter, ok := h.scraper.(spacePageGetter); ok {
+			var wg sync.WaitGroup
+
+			for _, spaceKey := range request.SpaceKeys {
+				wg.Add(1)
+
+				go func(key string) {
+					defer wg.Done()
+
+					h.logger.Info().Str("space", key).Msg("Starting parallel fetch for space")
+
+					if err := getter.GetSpacePages(key); err != nil {
+						h.logger.Error().Err(err).Str("space", key).Msg("Failed to get space pages")
+					} else {
+						h.logger.Info().Str("space", key).Msg("Completed parallel fetch for space")
+					}
+				}(spaceKey)
+			}
+
+			wg.Wait()
+			h.logger.Info().Int("spaceCount", len(request.SpaceKeys)).Msg("Completed fetching all spaces")
+		}
+	}()
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "started",
+		"message": "Fetching pages for selected spaces",
+	})
+}
+
 // ClearAllDataHandler clears all cached data from the database
 func (h *ScraperHandler) ClearAllDataHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
@@ -267,7 +382,6 @@ func (h *ScraperHandler) ClearAllDataHandler(w http.ResponseWriter, r *http.Requ
 
 	h.logger.Info().Msg("Clearing all data from database")
 
-	// Type assertion to access ClearAllData method
 	type dataClearer interface {
 		ClearAllData() error
 	}

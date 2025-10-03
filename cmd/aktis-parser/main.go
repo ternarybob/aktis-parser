@@ -90,10 +90,13 @@ func main() {
 	http.HandleFunc("/api/scrape/spaces", scraperHandler.ScrapeSpacesHandler)
 	http.HandleFunc("/api/projects/refresh-cache", scraperHandler.RefreshProjectsCacheHandler)
 	http.HandleFunc("/api/projects/get-issues", scraperHandler.GetProjectIssuesHandler)
+	http.HandleFunc("/api/spaces/refresh-cache", scraperHandler.RefreshSpacesCacheHandler)
+	http.HandleFunc("/api/spaces/get-pages", scraperHandler.GetSpacePagesHandler)
 	http.HandleFunc("/api/data/clear-all", scraperHandler.ClearAllDataHandler)
 	http.HandleFunc("/api/data/jira", dataHandler.GetJiraDataHandler)
 	http.HandleFunc("/api/data/jira/issues", dataHandler.GetJiraIssuesHandler)
 	http.HandleFunc("/api/data/confluence", dataHandler.GetConfluenceDataHandler)
+	http.HandleFunc("/api/data/confluence/pages", dataHandler.GetConfluencePagesHandler)
 	http.HandleFunc("/api/version", apiHandler.VersionHandler)
 	http.HandleFunc("/api/health", apiHandler.HealthHandler)
 

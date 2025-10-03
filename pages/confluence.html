@@ -9,24 +9,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
-    <style>
-        .action-button {
-            background: #27ae60;
-        }
-
-        .action-button:hover {
-            background: #1e8449;
-            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
-        }
-
-        .section-header {
-            border-left-color: #27ae60;
-        }
-
-        .navbar-link.active {
-            border-bottom-color: #27ae60;
-        }
-    </style>
 </head>
 <body>
     <!-- Top Navbar -->
@@ -51,39 +33,92 @@
         <div class="content-area">
             <!-- Hero Section -->
             <div class="hero-section">
-                <h1 class="hero-title">Confluence Data Management</h1>
+                <h1 class="hero-title">Confluence Space Management</h1>
                 <p class="hero-subtitle">
-                    Scrape and manage Confluence spaces and pages from authenticated Atlassian instance
+                    Select spaces to scrape pages from authenticated Confluence instance
                 </p>
             </div>
 
-            <!-- Confluence Management Section -->
+            <!-- Space Management Section -->
             <div class="dashboard-grid">
                 <div class="card">
                     <div class="card-header">
-                        <div class="card-title">Confluence Spaces</div>
+                        <div class="card-title">Spaces</div>
+                        <div class="action-buttons-header">
+                            <button id="sync-btn" class="menu-btn" onclick="syncSpaces()">
+                                <span id="sync-text">GET SPACES</span>
+                            </button>
+                            <button id="get-pages-menu-btn" class="menu-btn" onclick="getPages()" disabled>
+                                GET PAGES
+                            </button>
+                            <button id="clear-data-btn" class="menu-btn menu-btn-danger" onclick="clearAllData()">
+                                CLEAR ALL DATA
+                            </button>
+                        </div>
+                        <div id="sync-notification" class="menu-notification-inline"></div>
                     </div>
 
-                    <!-- Capture Action -->
-                    <div style="padding: 20px; text-align: center;">
-                        <p style="font-family: monospace; font-size: 12px; color: #6a6a6a; margin-bottom: 20px;">
-                            Scrape Confluence spaces and pages from authenticated Atlassian instance
-                        </p>
-                        <button id="btn-capture-spaces" class="btn btn-primary" onclick="captureSpaces()">
-                            CAPTURE SPACES
-                        </button>
+                    <!-- Search Box -->
+                    <div style="padding: 15px; background: #fafafa; border-bottom: 1px solid #e0e0e0;">
+                        <input type="text" id="search-box" class="search-box" placeholder="Search spaces by key, name, or description...">
+                    </div>
+
+                    <!-- Select All Header -->
+                    <div class="select-all-container">
+                        <label class="select-all-label">
+                            <input type="checkbox" id="select-all-checkbox">
+                            <span>SELECT ALL</span>
+                        </label>
+                        <span id="selection-count" class="selection-count">0/0</span>
+                    </div>
+
+                    <!-- Space List -->
+                    <div id="space-list" class="project-list-container">
+                        <div style="text-align: center; padding: 40px; color: #6a6a6a; font-family: monospace; font-size: 12px;">
+                            Loading spaces...
+                        </div>
                     </div>
                 </div>
 
-                <!-- Pages Display Section -->
-                <div class="card">
+                <!-- Pages Table Section -->
+                <div class="card" id="pages-section">
                     <div class="card-header">
                         <div class="card-title">Pages</div>
-                        <div class="section-count" id="pages-count" style="font-family: monospace; font-size: 11px; color: #6a6a6a;">Loading...</div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <span id="pages-count" class="selection-count">0 pages</span>
+                            <div id="pages-loader" class="spinner" style="display: none;"></div>
+                        </div>
                     </div>
-                    <div class="json-container">
-                        <pre><code id="pages-data" class="language-json">Loading...</code></pre>
+
+                    <!-- Pages Table -->
+                    <div class="table-container">
+                        <table id="pages-table" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 100px;">Space</th>
+                                    <th style="width: 80px;">ID</th>
+                                    <th>Title</th>
+                                    <th style="width: 120px;">Type</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pages-table-body">
+                                <tr>
+                                    <td colspan="4" style="text-align: center; padding: 40px; color: #6a6a6a;">
+                                        No pages loaded. Select spaces and click "GET PAGES".
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
+                </div>
+
+                <!-- Page Detail Section -->
+                <div class="card" id="page-detail-section">
+                    <div class="card-header">
+                        <div class="card-title">Page Detail</div>
+                        <span id="selected-page-id" class="selection-count"></span>
+                    </div>
+                    <pre id="page-detail-json" style="margin: 0; padding: 15px; background: #ffffff; color: #333333; font-family: 'Courier New', monospace; font-size: 12px; max-height: 500px; overflow: auto; border: none;"><code class="language-json"></code></pre>
                 </div>
             </div>
         </div>
@@ -102,15 +137,66 @@
 
     <!-- Footer -->
     <div class="system-footer">
-        Aktis Parser // Confluence Data Management
+        Aktis Parser // Confluence Space Management
     </div>
 
     <script>
-        // WebSocket connection for service logs
+        // State management
+        let allSpaces = [];
+        let filteredSpaces = [];
+        let selectedSpaces = new Set();
+        let selectedPage = null;
+        let allPages = [];
+        let isSyncing = false;
+        let currentPollInterval = null;
+        let currentPollSpaceKeys = [];
         let ws;
         let reconnectInterval;
         let displayedLogs = new Set();
 
+        // URL parameter management
+        function _getSpacesFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const spacesParam = params.get('spaces');
+
+            if (!spacesParam) return null;
+            if (spacesParam === 'ALL') return 'ALL';
+
+            return spacesParam.split(',').filter(id => id.trim());
+        }
+
+        function _getPageFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('page');
+        }
+
+        function _updateUrlWithSpaces(spaceIds) {
+            const url = new URL(window.location);
+
+            if (!spaceIds || spaceIds.length === 0) {
+                url.searchParams.delete('spaces');
+            } else if (spaceIds === 'ALL') {
+                url.searchParams.set('spaces', 'ALL');
+            } else {
+                url.searchParams.set('spaces', spaceIds.join(','));
+            }
+
+            window.history.replaceState({}, '', url);
+        }
+
+        function _updateUrlWithPage(pageId) {
+            const url = new URL(window.location);
+
+            if (!pageId) {
+                url.searchParams.delete('page');
+            } else {
+                url.searchParams.set('page', pageId);
+            }
+
+            window.history.replaceState({}, '', url);
+        }
+
+        // WebSocket connection
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws`;
@@ -200,7 +286,6 @@
             logsContainer.appendChild(logEntry);
             logsContainer.scrollTop = logsContainer.scrollHeight;
 
-            // Limit to last 100 entries
             while (logsContainer.children.length > 100) {
                 const removed = logsContainer.removeChild(logsContainer.firstChild);
                 displayedLogs.delete(removed.textContent);
@@ -226,76 +311,549 @@
             }
         }
 
-        // Fetch Confluence data and display
-        async function loadConfluenceData() {
+        // Space management functions
+        async function loadSpaces() {
             try {
                 const response = await fetch('/api/data/confluence');
                 if (!response.ok) {
-                    throw new Error('Failed to fetch Confluence data');
+                    throw new Error('Failed to fetch spaces');
                 }
 
                 const data = await response.json();
 
-                // Display pages
-                const pagesCount = data.pages ? data.pages.length : 0;
-                document.getElementById('pages-count').textContent = `${pagesCount} page(s)`;
-
-                const pagesData = document.getElementById('pages-data');
-                if (pagesCount > 0) {
-                    pagesData.textContent = JSON.stringify(data.pages, null, 2);
+                if (data.spaces && data.spaces.length > 0) {
+                    allSpaces = data.spaces.map(s => ({
+                        key: s.key,
+                        name: s.name || `Space ${s.key}`,
+                        description: s.description?.plain?.value || '',
+                        pageCount: s.pageCount || 0
+                    }));
                 } else {
-                    pagesData.textContent = 'No pages found in database';
+                    allSpaces = [];
                 }
 
-                // Apply syntax highlighting
-                document.querySelectorAll('pre code').forEach((block) => {
-                    hljs.highlightElement(block);
-                });
+                filteredSpaces = [...allSpaces];
+
+                const urlSpaces = _getSpacesFromUrl();
+                if (urlSpaces === 'ALL') {
+                    allSpaces.forEach(s => selectedSpaces.add(s.key));
+                } else if (urlSpaces && urlSpaces.length > 0) {
+                    urlSpaces.forEach(key => {
+                        if (allSpaces.find(s => s.key === key)) {
+                            selectedSpaces.add(key);
+                        }
+                    });
+                }
+
+                renderSpaces();
+                updateSelectionCount();
+                updateButtonStates();
+
+                if (selectedSpaces.size > 0) {
+                    loadPagesFromDatabase();
+                }
 
             } catch (error) {
-                console.error('Error loading Confluence data:', error);
-                document.getElementById('pages-data').textContent = 'Error loading data: ' + error.message;
+                console.error('Error loading spaces:', error);
+                showNotification('Failed to load spaces', 'error');
+                allSpaces = [];
+                filteredSpaces = [];
+                renderSpaces();
             }
         }
 
-        // Capture spaces handler
-        async function captureSpaces() {
-            const button = document.getElementById('btn-capture-spaces');
-            const originalText = button.textContent;
-            button.disabled = true;
-            button.textContent = 'Collecting...';
+        function renderSpaces() {
+            const container = document.getElementById('space-list');
+
+            if (filteredSpaces.length === 0) {
+                const message = allSpaces.length === 0
+                    ? 'No spaces in cache. Click "GET SPACES" to load from Confluence.'
+                    : 'No spaces match your search criteria.';
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #6a6a6a; font-family: monospace; font-size: 12px;">
+                        ${message}
+                    </div>
+                `;
+                return;
+            }
+
+            const sortedSpaces = [...filteredSpaces].sort((a, b) => {
+                const aSelected = selectedSpaces.has(a.key);
+                const bSelected = selectedSpaces.has(b.key);
+
+                if (aSelected && !bSelected) return -1;
+                if (!aSelected && bSelected) return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            container.innerHTML = sortedSpaces.map(space => `
+                <div class="project-item ${selectedSpaces.has(space.key) ? 'selected' : ''}" onclick="toggleSpace('${space.key}', event)">
+                    <input type="checkbox"
+                           id="space-${space.key}"
+                           value="${space.key}"
+                           ${selectedSpaces.has(space.key) ? 'checked' : ''}>
+                    <span class="project-key">${space.key}</span>
+                    <div class="project-info">
+                        <div class="project-name">${space.name}</div>
+                        <div class="project-description">${space.description}</div>
+                    </div>
+                    <span class="project-issues">${space.pageCount} pages</span>
+                </div>
+            `).join('');
+        }
+
+        function toggleSpace(key, event) {
+            event.stopPropagation();
+
+            if (selectedSpaces.has(key)) {
+                selectedSpaces.delete(key);
+            } else {
+                selectedSpaces.add(key);
+            }
+
+            renderSpaces();
+            updateSelectionCount();
+            updateButtonStates();
+            _syncUrlWithSelection();
+
+            loadPagesFromDatabase();
+        }
+
+        function _syncUrlWithSelection() {
+            if (selectedSpaces.size === 0) {
+                _updateUrlWithSpaces(null);
+            } else if (selectedSpaces.size === allSpaces.length && allSpaces.length > 0) {
+                _updateUrlWithSpaces('ALL');
+            } else {
+                _updateUrlWithSpaces(Array.from(selectedSpaces));
+            }
+        }
+
+        function updateSelectionCount() {
+            const countElement = document.getElementById('selection-count');
+            countElement.textContent = `${selectedSpaces.size}/${filteredSpaces.length}`;
+
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            selectAllCheckbox.checked = selectedSpaces.size === filteredSpaces.length && filteredSpaces.length > 0;
+            selectAllCheckbox.indeterminate = selectedSpaces.size > 0 && selectedSpaces.size < filteredSpaces.length;
+        }
+
+        function updateButtonStates() {
+            const getPagesBtn = document.getElementById('get-pages-menu-btn');
+            getPagesBtn.disabled = selectedSpaces.size === 0;
+        }
+
+        // Search functionality
+        document.getElementById('search-box').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+
+            if (!searchTerm) {
+                filteredSpaces = [...allSpaces];
+            } else {
+                filteredSpaces = allSpaces.filter(s =>
+                    s.key.toLowerCase().includes(searchTerm) ||
+                    s.name.toLowerCase().includes(searchTerm) ||
+                    s.description.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            renderSpaces();
+            updateSelectionCount();
+        });
+
+        // Select all functionality
+        document.getElementById('select-all-checkbox').addEventListener('change', function(e) {
+            if (e.target.checked) {
+                filteredSpaces.forEach(s => selectedSpaces.add(s.key));
+            } else {
+                filteredSpaces.forEach(s => selectedSpaces.delete(s.key));
+            }
+
+            renderSpaces();
+            updateSelectionCount();
+            updateButtonStates();
+            _syncUrlWithSelection();
+
+            loadPagesFromDatabase();
+        });
+
+        // Sync spaces
+        async function syncSpaces() {
+            if (isSyncing) return;
+
+            isSyncing = true;
+            const syncBtn = document.getElementById('sync-btn');
+            const syncText = document.getElementById('sync-text');
+
+            syncBtn.disabled = true;
+            syncText.innerHTML = '<span class="spinner"></span> SYNCING...';
+            showNotification('Clearing cache and syncing spaces from Confluence...', 'info');
 
             try {
-                const response = await fetch('/api/scrape/spaces', {
+                const response = await fetch('/api/spaces/refresh-cache', {
                     method: 'POST'
                 });
 
-                const result = await response.json();
-
                 if (!response.ok) {
-                    throw new Error(result.message || 'Failed to start spaces scraping');
+                    throw new Error('Failed to sync spaces');
                 }
 
-                // Reload data after short delay
+                showNotification('Space sync started (fetching page counts)...', 'success');
+
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const checkResponse = await fetch('/api/data/confluence');
+                        if (checkResponse.ok) {
+                            const data = await checkResponse.json();
+                            if (data.spaces && data.spaces.length > 0) {
+                                clearInterval(pollInterval);
+                                loadSpaces();
+                                showNotification(`Successfully loaded ${data.spaces.length} spaces`, 'success');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error polling for spaces:', e);
+                    }
+                }, 1000);
+
                 setTimeout(() => {
-                    loadConfluenceData();
-                }, 2000);
+                    clearInterval(pollInterval);
+                    loadSpaces();
+                }, 15000);
 
             } catch (error) {
-                console.error('Error starting spaces scrape:', error);
-                alert('Error: ' + error.message);
+                console.error('Error syncing spaces:', error);
+                showNotification('Failed to sync spaces', 'error');
             } finally {
                 setTimeout(() => {
-                    button.disabled = false;
-                    button.textContent = originalText;
+                    isSyncing = false;
+                    syncBtn.disabled = false;
+                    syncText.textContent = 'SYNC SPACES';
+                }, 15000);
+            }
+        }
+
+        // Clear all data
+        async function clearAllData() {
+            if (!confirm('Are you sure you want to clear ALL data? This will delete all projects, issues, and Confluence pages from the local database.')) {
+                return;
+            }
+
+            const clearBtn = document.getElementById('clear-data-btn');
+            clearBtn.disabled = true;
+            clearBtn.textContent = 'CLEARING...';
+
+            try {
+                const response = await fetch('/api/data/clear-all', {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    showNotification('All data cleared successfully', 'success');
+
+                    allSpaces = [];
+                    filteredSpaces = [];
+                    selectedSpaces.clear();
+                    renderSpaces();
+                    updateSelectionCount();
+                    updateButtonStates();
+
+                    const tbody = document.getElementById('pages-table-body');
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="4" style="text-align: center; padding: 40px; color: #6a6a6a;">
+                                No pages loaded. Select spaces and click "GET PAGES".
+                            </td>
+                        </tr>
+                    `;
+                    document.getElementById('pages-count').textContent = '0 pages';
+                } else {
+                    showNotification('Failed to clear data', 'error');
+                }
+            } catch (error) {
+                console.error('Error clearing data:', error);
+                showNotification('Failed to clear data', 'error');
+            } finally {
+                clearBtn.disabled = false;
+                clearBtn.textContent = 'CLEAR ALL DATA';
+            }
+        }
+
+        // Get pages for selected spaces
+        async function getPages() {
+            if (selectedSpaces.size === 0) {
+                showNotification('Please select at least one space', 'error');
+                return;
+            }
+
+            const getPagesBtn = document.getElementById('get-pages-menu-btn');
+            const pagesLoader = document.getElementById('pages-loader');
+            const tbody = document.getElementById('pages-table-body');
+
+            getPagesBtn.disabled = true;
+            getPagesBtn.innerHTML = '<span>FETCHING...</span>';
+            pagesLoader.style.display = 'inline-block';
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 40px; color: #6a6a6a;">
+                        <div style="display: inline-block; margin-right: 10px; width: 16px; height: 16px; border: 2px solid #f3f3f3; border-top: 2px solid #2980b9; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                        Loading pages...
+                    </td>
+                </tr>
+            `;
+
+            showNotification(`Fetching pages for ${selectedSpaces.size} space(s)...`, 'info');
+
+            try {
+                const spaceKeys = Array.from(selectedSpaces);
+                const response = await fetch('/api/spaces/get-pages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ spaceKeys: spaceKeys })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch pages');
+                }
+
+                showNotification('Page fetching started...', 'info');
+
+                startPollingPages(spaceKeys);
+
+            } catch (error) {
+                console.error('Error fetching pages:', error);
+                showNotification('Failed to fetch pages', 'error');
+                pagesLoader.style.display = 'none';
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #ff4444;">
+                            Failed to fetch pages. Please try again.
+                        </td>
+                    </tr>
+                `;
+            } finally {
+                setTimeout(() => {
+                    getPagesBtn.disabled = false;
+                    getPagesBtn.textContent = 'GET PAGES';
+                    updateButtonStates();
                 }, 2000);
             }
         }
 
-        // Load data on page load
+        // Poll for pages data
+        function startPollingPages(spaceKeys) {
+            if (currentPollInterval) {
+                clearInterval(currentPollInterval);
+                currentPollInterval = null;
+            }
+
+            currentPollSpaceKeys = [...spaceKeys];
+            console.log('Starting poll for spaces:', currentPollSpaceKeys);
+
+            const pagesLoader = document.getElementById('pages-loader');
+            let pollCount = 0;
+            const maxPolls = 30;
+
+            currentPollInterval = setInterval(async () => {
+                pollCount++;
+
+                try {
+                    const queryParams = currentPollSpaceKeys.map(key => `spaceKey=${key}`).join('&');
+                    const response = await fetch(`/api/data/confluence/pages?${queryParams}`);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.pages && data.pages.length > 0) {
+                            const validPages = data.pages.filter(page => {
+                                const spaceKey = page.space?.key;
+                                return spaceKey && currentPollSpaceKeys.includes(spaceKey);
+                            });
+
+                            if (validPages.length > 0) {
+                                clearInterval(currentPollInterval);
+                                currentPollInterval = null;
+                                pagesLoader.style.display = 'none';
+                                displayPages(validPages);
+                                showNotification(`Loaded ${validPages.length} pages`, 'success');
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error polling for pages:', e);
+                }
+
+                if (pollCount >= maxPolls) {
+                    clearInterval(currentPollInterval);
+                    currentPollInterval = null;
+                    pagesLoader.style.display = 'none';
+                    showNotification('Page loading timed out', 'error');
+                }
+            }, 1000);
+        }
+
+        // Load pages from local database for selected spaces
+        async function loadPagesFromDatabase() {
+            if (currentPollInterval) {
+                clearInterval(currentPollInterval);
+                currentPollInterval = null;
+            }
+
+            const tbody = document.getElementById('pages-table-body');
+            const pagesCount = document.getElementById('pages-count');
+
+            if (selectedSpaces.size === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #6a6a6a;">
+                            No pages loaded. Select spaces and click "GET PAGES".
+                        </td>
+                    </tr>
+                `;
+                pagesCount.textContent = '0 pages';
+                return;
+            }
+
+            try {
+                const spaceKeys = Array.from(selectedSpaces);
+                const queryParams = spaceKeys.map(key => `spaceKey=${key}`).join('&');
+                const url = `/api/data/confluence/pages?${queryParams}`;
+
+                const response = await fetch(url);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayPages(data.pages || []);
+                }
+            } catch (error) {
+                console.error('Error loading pages from database:', error);
+            }
+        }
+
+        // Display pages in table
+        function displayPages(pages) {
+            const tbody = document.getElementById('pages-table-body');
+            const pagesCount = document.getElementById('pages-count');
+
+            allPages = pages || [];
+
+            if (!pages || pages.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 40px; color: #6a6a6a;">
+                            No pages found for selected spaces. Click "GET PAGES" to fetch from server.
+                        </td>
+                    </tr>
+                `;
+                pagesCount.textContent = '0 pages';
+                _clearPageDetail();
+                return;
+            }
+
+            tbody.innerHTML = pages.map((page, index) => {
+                const spaceKey = page.space?.key || 'N/A';
+                const pageId = page.id || 'N/A';
+                const title = page.title || 'Untitled';
+                const type = page.type || 'page';
+                const isSelected = selectedPage && selectedPage.id === page.id;
+
+                return `
+                    <tr onclick="_selectPage(${index})"
+                        style="cursor: pointer; background-color: ${isSelected ? '#e3f2fd' : 'transparent'};"
+                        class="${isSelected ? 'selected-page' : ''}">
+                        <td>${spaceKey}</td>
+                        <td>${pageId}</td>
+                        <td>${title}</td>
+                        <td>${type}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            pagesCount.textContent = `${pages.length} page${pages.length !== 1 ? 's' : ''}`;
+
+            const urlPageId = _getPageFromUrl();
+            if (urlPageId) {
+                const pageIndex = allPages.findIndex(page => page.id === urlPageId);
+                if (pageIndex !== -1) {
+                    _selectPage(pageIndex, false);
+                }
+            }
+        }
+
+        function _selectPage(index, updateUrl = true) {
+            selectedPage = allPages[index];
+            _displayPageDetail(selectedPage);
+
+            if (updateUrl) {
+                _updateUrlWithPage(selectedPage ? selectedPage.id : null);
+            }
+
+            _updatePageHighlighting();
+        }
+
+        function _updatePageHighlighting() {
+            const tbody = document.getElementById('pages-table-body');
+            const rows = tbody.querySelectorAll('tr');
+
+            rows.forEach((row, index) => {
+                const page = allPages[index];
+                if (page) {
+                    const isSelected = selectedPage && selectedPage.id === page.id;
+                    row.style.backgroundColor = isSelected ? '#e3f2fd' : 'transparent';
+                    if (isSelected) {
+                        row.classList.add('selected-page');
+                    } else {
+                        row.classList.remove('selected-page');
+                    }
+                }
+            });
+        }
+
+        function _displayPageDetail(page) {
+            const selectedId = document.getElementById('selected-page-id');
+            const detailPre = document.getElementById('page-detail-json');
+            const codeBlock = detailPre.querySelector('code');
+
+            if (!page) {
+                _clearPageDetail();
+                return;
+            }
+
+            selectedId.textContent = page.id || 'Unknown';
+            const jsonString = JSON.stringify(page, null, 2);
+            codeBlock.textContent = jsonString;
+
+            if (typeof hljs !== 'undefined') {
+                hljs.highlightElement(codeBlock);
+            }
+        }
+
+        function _clearPageDetail() {
+            const selectedId = document.getElementById('selected-page-id');
+            const detailPre = document.getElementById('page-detail-json');
+            const codeBlock = detailPre.querySelector('code');
+
+            selectedId.textContent = '';
+            codeBlock.textContent = '';
+            selectedPage = null;
+        }
+
+        function showNotification(message, type) {
+            const notification = document.getElementById('sync-notification');
+            notification.innerHTML = `<div class="sync-message ${type}">${message}</div>`;
+
+            setTimeout(() => {
+                notification.innerHTML = '';
+            }, 5000);
+        }
+
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             connectWebSocket();
-            loadConfluenceData();
+            loadSpaces();
+            updateButtonStates();
         });
     </script>
 </body>

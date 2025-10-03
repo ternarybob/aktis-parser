@@ -1,0 +1,677 @@
+{
+  "lastUpdated": "2025-10-03T00:44:13.796Z",
+  "functions": [
+    {
+      "name": "PrintBanner",
+      "file": "internal/common/banner.go",
+      "line": 11,
+      "isReceiver": false,
+      "signature": "func PrintBanner(serviceName, environment, mode, logFile, serviceURL string) {"
+    },
+    {
+      "name": "PrintShutdownBanner",
+      "file": "internal/common/banner.go",
+      "line": 69,
+      "isReceiver": false,
+      "signature": "func PrintShutdownBanner(serviceName string) {"
+    },
+    {
+      "name": "PrintColorizedMessage",
+      "file": "internal/common/banner.go",
+      "line": 85,
+      "isReceiver": false,
+      "signature": "func PrintColorizedMessage(color, message string) {"
+    },
+    {
+      "name": "PrintSuccess",
+      "file": "internal/common/banner.go",
+      "line": 90,
+      "isReceiver": false,
+      "signature": "func PrintSuccess(message string) {"
+    },
+    {
+      "name": "PrintError",
+      "file": "internal/common/banner.go",
+      "line": 95,
+      "isReceiver": false,
+      "signature": "func PrintError(message string) {"
+    },
+    {
+      "name": "PrintWarning",
+      "file": "internal/common/banner.go",
+      "line": 100,
+      "isReceiver": false,
+      "signature": "func PrintWarning(message string) {"
+    },
+    {
+      "name": "PrintInfo",
+      "file": "internal/common/banner.go",
+      "line": 105,
+      "isReceiver": false,
+      "signature": "func PrintInfo(message string) {"
+    },
+    {
+      "name": "DefaultConfig",
+      "file": "internal/common/config.go",
+      "line": 61,
+      "isReceiver": false,
+      "signature": "func DefaultConfig() *Config {"
+    },
+    {
+      "name": "LoadConfig",
+      "file": "internal/common/config.go",
+      "line": 105,
+      "isReceiver": false,
+      "signature": "func LoadConfig(configFile string) (*Config, error) {"
+    },
+    {
+      "name": "Validate",
+      "file": "internal/common/config.go",
+      "line": 171,
+      "isReceiver": true,
+      "signature": "func (c *Config) Validate() error {"
+    },
+    {
+      "name": "IsProduction",
+      "file": "internal/common/config.go",
+      "line": 215,
+      "isReceiver": true,
+      "signature": "func (c *Config) IsProduction() bool {"
+    },
+    {
+      "name": "GetLogger",
+      "file": "internal/common/logging.go",
+      "line": 18,
+      "isReceiver": false,
+      "signature": "func GetLogger() arbor.ILogger {"
+    },
+    {
+      "name": "GetLogFilePath",
+      "file": "internal/common/logging.go",
+      "line": 37,
+      "isReceiver": false,
+      "signature": "func GetLogFilePath() string {"
+    },
+    {
+      "name": "InitLogger",
+      "file": "internal/common/logging.go",
+      "line": 57,
+      "isReceiver": false,
+      "signature": "func InitLogger(config *LoggingConfig) error {"
+    },
+    {
+      "name": "GetVersion",
+      "file": "internal/common/version.go",
+      "line": 20,
+      "isReceiver": false,
+      "signature": "func GetVersion() string {"
+    },
+    {
+      "name": "GetBuild",
+      "file": "internal/common/version.go",
+      "line": 25,
+      "isReceiver": false,
+      "signature": "func GetBuild() string {"
+    },
+    {
+      "name": "GetGitCommit",
+      "file": "internal/common/version.go",
+      "line": 30,
+      "isReceiver": false,
+      "signature": "func GetGitCommit() string {"
+    },
+    {
+      "name": "GetFullVersion",
+      "file": "internal/common/version.go",
+      "line": 35,
+      "isReceiver": false,
+      "signature": "func GetFullVersion() string {"
+    },
+    {
+      "name": "GetExtensionVersion",
+      "file": "internal/common/version.go",
+      "line": 43,
+      "isReceiver": false,
+      "signature": "func GetExtensionVersion() string {"
+    },
+    {
+      "name": "NewAPIHandler",
+      "file": "internal/handlers/api.go",
+      "line": 15,
+      "isReceiver": false,
+      "signature": "func NewAPIHandler() *APIHandler {"
+    },
+    {
+      "name": "VersionHandler",
+      "file": "internal/handlers/api.go",
+      "line": 22,
+      "isReceiver": true,
+      "signature": "func (h *APIHandler) VersionHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "HealthHandler",
+      "file": "internal/handlers/api.go",
+      "line": 37,
+      "isReceiver": true,
+      "signature": "func (h *APIHandler) HealthHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "NotFoundHandler",
+      "file": "internal/handlers/api.go",
+      "line": 50,
+      "isReceiver": true,
+      "signature": "func (h *APIHandler) NotFoundHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "NewDataHandler",
+      "file": "internal/handlers/data.go",
+      "line": 17,
+      "isReceiver": false,
+      "signature": "func NewDataHandler(s interfaces.Scraper) *DataHandler {"
+    },
+    {
+      "name": "GetJiraDataHandler",
+      "file": "internal/handlers/data.go",
+      "line": 25,
+      "isReceiver": true,
+      "signature": "func (h *DataHandler) GetJiraDataHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "GetJiraIssuesHandler",
+      "file": "internal/handlers/data.go",
+      "line": 43,
+      "isReceiver": true,
+      "signature": "func (h *DataHandler) GetJiraIssuesHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "GetConfluenceDataHandler",
+      "file": "internal/handlers/data.go",
+      "line": 152,
+      "isReceiver": true,
+      "signature": "func (h *DataHandler) GetConfluenceDataHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "GetConfluencePagesHandler",
+      "file": "internal/handlers/data.go",
+      "line": 170,
+      "isReceiver": true,
+      "signature": "func (h *DataHandler) GetConfluencePagesHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "NewScraperHandler",
+      "file": "internal/handlers/scraper.go",
+      "line": 19,
+      "isReceiver": false,
+      "signature": "func NewScraperHandler(s interfaces.Scraper, ws *WebSocketHandler) *ScraperHandler {"
+    },
+    {
+      "name": "AuthUpdateHandler",
+      "file": "internal/handlers/scraper.go",
+      "line": 28,
+      "isReceiver": true,
+      "signature": "func (h *ScraperHandler) AuthUpdateHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "ScrapeHandler",
+      "file": "internal/handlers/scraper.go",
+      "line": 61,
+      "isReceiver": true,
+      "signature": "func (h *ScraperHandler) ScrapeHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "ScrapeProjectsHandler",
+      "file": "internal/handlers/scraper.go",
+      "line": 78,
+      "isReceiver": true,
+      "signature": "func (h *ScraperHandler) ScrapeProjectsHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "ScrapeSpacesHandler",
+      "file": "internal/handlers/scraper.go",
+      "line": 109,
+      "isReceiver": true,
+      "signature": "func (h *ScraperHandler) ScrapeSpacesHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "RefreshProjectsCacheHandler",
+      "file": "internal/handlers/scraper.go",
+      "line": 140,
+      "isReceiver": true,
+      "signature": "func (h *ScraperHandler) RefreshProjectsCacheHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "GetProjectIssuesHandler",
+      "file": "internal/handlers/scraper.go",
+      "line": 191,
+      "isReceiver": true,
+      "signature": "func (h *ScraperHandler) GetProjectIssuesHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "RefreshSpacesCacheHandler",
+      "file": "internal/handlers/scraper.go",
+      "line": 262,
+      "isReceiver": true,
+      "signature": "func (h *ScraperHandler) RefreshSpacesCacheHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "GetSpacePagesHandler",
+      "file": "internal/handlers/scraper.go",
+      "line": 310,
+      "isReceiver": true,
+      "signature": "func (h *ScraperHandler) GetSpacePagesHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "ClearAllDataHandler",
+      "file": "internal/handlers/scraper.go",
+      "line": 377,
+      "isReceiver": true,
+      "signature": "func (h *ScraperHandler) ClearAllDataHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "NewUIHandler",
+      "file": "internal/handlers/ui.go",
+      "line": 18,
+      "isReceiver": false,
+      "signature": "func NewUIHandler() *UIHandler {"
+    },
+    {
+      "name": "IndexHandler",
+      "file": "internal/handlers/ui.go",
+      "line": 44,
+      "isReceiver": true,
+      "signature": "func (h *UIHandler) IndexHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "StatusHandler",
+      "file": "internal/handlers/ui.go",
+      "line": 55,
+      "isReceiver": true,
+      "signature": "func (h *UIHandler) StatusHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "ParserStatusHandler",
+      "file": "internal/handlers/ui.go",
+      "line": 77,
+      "isReceiver": true,
+      "signature": "func (h *UIHandler) ParserStatusHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "JiraPageHandler",
+      "file": "internal/handlers/ui.go",
+      "line": 105,
+      "isReceiver": true,
+      "signature": "func (h *UIHandler) JiraPageHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "ConfluencePageHandler",
+      "file": "internal/handlers/ui.go",
+      "line": 111,
+      "isReceiver": true,
+      "signature": "func (h *UIHandler) ConfluencePageHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "StaticFileHandler",
+      "file": "internal/handlers/ui.go",
+      "line": 117,
+      "isReceiver": true,
+      "signature": "func (h *UIHandler) StaticFileHandler(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "NewWebSocketHandler",
+      "file": "internal/handlers/websocket.go",
+      "line": 39,
+      "isReceiver": false,
+      "signature": "func NewWebSocketHandler() *WebSocketHandler {"
+    },
+    {
+      "name": "SetAuthLoader",
+      "file": "internal/handlers/websocket.go",
+      "line": 49,
+      "isReceiver": true,
+      "signature": "func (h *WebSocketHandler) SetAuthLoader(loader AuthLoader) {"
+    },
+    {
+      "name": "BroadcastUILog",
+      "file": "internal/handlers/websocket.go",
+      "line": 55,
+      "isReceiver": true,
+      "signature": "func (h *WebSocketHandler) BroadcastUILog(level, message string) {"
+    },
+    {
+      "name": "HandleWebSocket",
+      "file": "internal/handlers/websocket.go",
+      "line": 89,
+      "isReceiver": true,
+      "signature": "func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {"
+    },
+    {
+      "name": "BroadcastStatus",
+      "file": "internal/handlers/websocket.go",
+      "line": 138,
+      "isReceiver": true,
+      "signature": "func (h *WebSocketHandler) BroadcastStatus(status StatusUpdate) {"
+    },
+    {
+      "name": "BroadcastAuth",
+      "file": "internal/handlers/websocket.go",
+      "line": 212,
+      "isReceiver": true,
+      "signature": "func (h *WebSocketHandler) BroadcastAuth(authData *interfaces.AuthData) {"
+    },
+    {
+      "name": "BroadcastLog",
+      "file": "internal/handlers/websocket.go",
+      "line": 226,
+      "isReceiver": true,
+      "signature": "func (h *WebSocketHandler) BroadcastLog(entry LogEntry) {"
+    },
+    {
+      "name": "StartStatusBroadcaster",
+      "file": "internal/handlers/websocket.go",
+      "line": 299,
+      "isReceiver": true,
+      "signature": "func (h *WebSocketHandler) StartStatusBroadcaster() {"
+    },
+    {
+      "name": "SendLog",
+      "file": "internal/handlers/websocket.go",
+      "line": 325,
+      "isReceiver": true,
+      "signature": "func (h *WebSocketHandler) SendLog(level, message string) {"
+    },
+    {
+      "name": "StartLogStreamer",
+      "file": "internal/handlers/websocket.go",
+      "line": 335,
+      "isReceiver": true,
+      "signature": "func (h *WebSocketHandler) StartLogStreamer() {"
+    },
+    {
+      "name": "ToHTTPCookie",
+      "file": "internal/interfaces/scraper.go",
+      "line": 49,
+      "isReceiver": true,
+      "signature": "func (ec *ExtensionCookie) ToHTTPCookie() *http.Cookie {"
+    },
+    {
+      "name": "GetHTTPCookies",
+      "file": "internal/interfaces/scraper.go",
+      "line": 89,
+      "isReceiver": true,
+      "signature": "func (ad *AuthData) GetHTTPCookies() []*http.Cookie {"
+    },
+    {
+      "name": "NewJiraScraper",
+      "file": "internal/services/jira_service.go",
+      "line": 31,
+      "isReceiver": false,
+      "signature": "func NewJiraScraper(dbPath string, logger ILogger) (*JiraScraper, error) {"
+    },
+    {
+      "name": "SetUILogger",
+      "file": "internal/services/jira_service.go",
+      "line": 54,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) SetUILogger(uiLog UILogger) {"
+    },
+    {
+      "name": "Close",
+      "file": "internal/services/jira_service.go",
+      "line": 59,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) Close() error {"
+    },
+    {
+      "name": "UpdateAuth",
+      "file": "internal/services/jira_service.go",
+      "line": 64,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) UpdateAuth(authData *interfaces.AuthData) error {"
+    },
+    {
+      "name": "LoadAuth",
+      "file": "internal/services/jira_service.go",
+      "line": 110,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) LoadAuth() (*interfaces.AuthData, error) {"
+    },
+    {
+      "name": "GetProjectIssueCount",
+      "file": "internal/services/jira_service.go",
+      "line": 173,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) GetProjectIssueCount(projectKey string) (int, error) {"
+    },
+    {
+      "name": "ScrapeProjects",
+      "file": "internal/services/jira_service.go",
+      "line": 223,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) ScrapeProjects() error {"
+    },
+    {
+      "name": "DeleteProjectIssues",
+      "file": "internal/services/jira_service.go",
+      "line": 319,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) DeleteProjectIssues(projectKey string) error {"
+    },
+    {
+      "name": "GetProjectIssues",
+      "file": "internal/services/jira_service.go",
+      "line": 365,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) GetProjectIssues(projectKey string) error {"
+    },
+    {
+      "name": "ScrapeConfluence",
+      "file": "internal/services/jira_service.go",
+      "line": 598,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) ScrapeConfluence() error {"
+    },
+    {
+      "name": "IsAuthenticated",
+      "file": "internal/services/jira_service.go",
+      "line": 707,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) IsAuthenticated() bool {"
+    },
+    {
+      "name": "GetJiraData",
+      "file": "internal/services/jira_service.go",
+      "line": 712,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) GetJiraData() (map[string]interface{}, error) {"
+    },
+    {
+      "name": "ClearAllData",
+      "file": "internal/services/jira_service.go",
+      "line": 750,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) ClearAllData() error {"
+    },
+    {
+      "name": "GetConfluenceData",
+      "file": "internal/services/jira_service.go",
+      "line": 792,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) GetConfluenceData() (map[string]interface{}, error) {"
+    },
+    {
+      "name": "ClearProjectsCache",
+      "file": "internal/services/jira_service.go",
+      "line": 830,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) ClearProjectsCache() error {"
+    },
+    {
+      "name": "ClearSpacesCache",
+      "file": "internal/services/jira_service.go",
+      "line": 859,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) ClearSpacesCache() error {"
+    },
+    {
+      "name": "ScrapeAll",
+      "file": "internal/services/jira_service.go",
+      "line": 888,
+      "isReceiver": true,
+      "signature": "func (s *JiraScraper) ScrapeAll() error {"
+    },
+    {
+      "name": "NewLoggingService",
+      "file": "internal/services/logging_service.go",
+      "line": 30,
+      "isReceiver": false,
+      "signature": "func NewLoggingService(logger ILogger) *AppLoggingService {"
+    },
+    {
+      "name": "SetUILogger",
+      "file": "internal/services/logging_service.go",
+      "line": 38,
+      "isReceiver": true,
+      "signature": "func (s *AppLoggingService) SetUILogger(uiLogger UILogger) {"
+    },
+    {
+      "name": "Debug",
+      "file": "internal/services/logging_service.go",
+      "line": 45,
+      "isReceiver": true,
+      "signature": "func (s *AppLoggingService) Debug(message string) {"
+    },
+    {
+      "name": "Info",
+      "file": "internal/services/logging_service.go",
+      "line": 50,
+      "isReceiver": true,
+      "signature": "func (s *AppLoggingService) Info(message string) {"
+    },
+    {
+      "name": "Warn",
+      "file": "internal/services/logging_service.go",
+      "line": 56,
+      "isReceiver": true,
+      "signature": "func (s *AppLoggingService) Warn(message string) {"
+    },
+    {
+      "name": "Error",
+      "file": "internal/services/logging_service.go",
+      "line": 62,
+      "isReceiver": true,
+      "signature": "func (s *AppLoggingService) Error(message string, err error) {"
+    },
+    {
+      "name": "WithField",
+      "file": "internal/services/logging_service.go",
+      "line": 72,
+      "isReceiver": true,
+      "signature": "func (s *AppLoggingService) WithField(key string, value interface{}) interfaces.LogEntry {"
+    },
+    {
+      "name": "WithFields",
+      "file": "internal/services/logging_service.go",
+      "line": 80,
+      "isReceiver": true,
+      "signature": "func (s *AppLoggingService) WithFields(fields map[string]interface{}) interfaces.LogEntry {"
+    },
+    {
+      "name": "BroadcastToUI",
+      "file": "internal/services/logging_service.go",
+      "line": 88,
+      "isReceiver": true,
+      "signature": "func (s *AppLoggingService) BroadcastToUI(level, message string) {"
+    },
+    {
+      "name": "Debug",
+      "file": "internal/services/logging_service.go",
+      "line": 121,
+      "isReceiver": true,
+      "signature": "func (e *logEntryImpl) Debug(message string) {"
+    },
+    {
+      "name": "Info",
+      "file": "internal/services/logging_service.go",
+      "line": 126,
+      "isReceiver": true,
+      "signature": "func (e *logEntryImpl) Info(message string) {"
+    },
+    {
+      "name": "Warn",
+      "file": "internal/services/logging_service.go",
+      "line": 132,
+      "isReceiver": true,
+      "signature": "func (e *logEntryImpl) Warn(message string) {"
+    },
+    {
+      "name": "Error",
+      "file": "internal/services/logging_service.go",
+      "line": 138,
+      "isReceiver": true,
+      "signature": "func (e *logEntryImpl) Error(message string, err error) {"
+    },
+    {
+      "name": "Msg",
+      "file": "internal/services/logging_service.go",
+      "line": 147,
+      "isReceiver": true,
+      "signature": "func (e *logEntryImpl) Msg(message string) {"
+    },
+    {
+      "name": "TestAPIAvailability",
+      "file": "tests/api/api_health_test.go",
+      "line": 12,
+      "isReceiver": false,
+      "signature": "func TestAPIAvailability(t *testing.T) {"
+    },
+    {
+      "name": "TestReceiverEndpoint",
+      "file": "tests/api/api_receiver_test.go",
+      "line": 65,
+      "isReceiver": false,
+      "signature": "func TestReceiverEndpoint(t *testing.T) {"
+    },
+    {
+      "name": "TestProjectIssueFiltering",
+      "file": "tests/api/project_filtering_test.go",
+      "line": 15,
+      "isReceiver": false,
+      "signature": "func TestProjectIssueFiltering(t *testing.T) {"
+    },
+    {
+      "name": "TestJira_AutoLoadIssues",
+      "file": "tests/ui/jira_autoload_issues_test.go",
+      "line": 14,
+      "isReceiver": false,
+      "signature": "func TestJira_AutoLoadIssues(t *testing.T) {"
+    },
+    {
+      "name": "TestJira_GetIssues",
+      "file": "tests/ui/jira_get_issues_test.go",
+      "line": 13,
+      "isReceiver": false,
+      "signature": "func TestJira_GetIssues(t *testing.T) {"
+    },
+    {
+      "name": "TestJira_SwitchProjects",
+      "file": "tests/ui/jira_switch_projects_test.go",
+      "line": 14,
+      "isReceiver": false,
+      "signature": "func TestJira_SwitchProjects(t *testing.T) {"
+    },
+    {
+      "name": "TestJira_SyncProjects",
+      "file": "tests/ui/jira_sync_test.go",
+      "line": 13,
+      "isReceiver": false,
+      "signature": "func TestJira_SyncProjects(t *testing.T) {"
+    },
+    {
+      "name": "TestUI_ParserPageLoads",
+      "file": "tests/ui/ui_test.go",
+      "line": 88,
+      "isReceiver": false,
+      "signature": "func TestUI_ParserPageLoads(t *testing.T) {"
+    }
+  ]
+}

@@ -38,6 +38,7 @@ func NewJiraScraper(dbPath string, logger ILogger) (*JiraScraper, error) {
 	db.Update(func(tx *bolt.Tx) error {
 		tx.CreateBucketIfNotExists([]byte("projects"))
 		tx.CreateBucketIfNotExists([]byte("issues"))
+		tx.CreateBucketIfNotExists([]byte("confluence_spaces"))
 		tx.CreateBucketIfNotExists([]byte("confluence_pages"))
 		tx.CreateBucketIfNotExists([]byte("auth"))
 		return nil
@@ -597,42 +598,98 @@ func (s *JiraScraper) scrapeProjectIssues(projectKey string) error {
 func (s *JiraScraper) ScrapeConfluence() error {
 	s.log.Info().Msg("Scraping Confluence spaces...")
 
-	data, err := s.makeRequest("GET", "/wiki/rest/api/space")
+	allSpaces := []map[string]interface{}{}
+	start := 0
+	limit := 25
+
+	// Paginate through all spaces
+	for {
+		path := fmt.Sprintf("/wiki/rest/api/space?start=%d&limit=%d", start, limit)
+		data, err := s.makeRequest("GET", path)
+		if err != nil {
+			return err
+		}
+
+		var spaces struct {
+			Results []map[string]interface{} `json:"results"`
+			Size    int                      `json:"size"`
+		}
+		if err := json.Unmarshal(data, &spaces); err != nil {
+			return fmt.Errorf("failed to parse spaces: %w", err)
+		}
+
+		if len(spaces.Results) == 0 {
+			break
+		}
+
+		allSpaces = append(allSpaces, spaces.Results...)
+		s.log.Info().Int("count", len(spaces.Results)).Msgf("Fetched %d spaces (total so far: %d)", len(spaces.Results), len(allSpaces))
+
+		start += limit
+		if len(spaces.Results) < limit {
+			break
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	// Store all spaces in database
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte("confluence_spaces"))
+		for _, space := range allSpaces {
+			spaceKey, ok := space["key"].(string)
+			if !ok {
+				continue
+			}
+			value, err := json.Marshal(space)
+			if err != nil {
+				continue
+			}
+			if err := bucket.Put([]byte(spaceKey), value); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to store spaces: %w", err)
 	}
 
-	var spaces struct {
-		Results []map[string]interface{} `json:"results"`
-	}
-	if err := json.Unmarshal(data, &spaces); err != nil {
-		return fmt.Errorf("failed to parse spaces: %w", err)
+	s.log.Info().Int("total", len(allSpaces)).Msg("Stored all Confluence spaces")
+	if s.uiLog != nil {
+		s.uiLog.BroadcastUILog("info", fmt.Sprintf("Stored %d Confluence spaces - ready for selection", len(allSpaces)))
 	}
 
-	for _, space := range spaces.Results {
-		spaceKey := space["key"].(string)
-		s.scrapeSpacePages(spaceKey)
-	}
+	// Don't scrape pages automatically - user selects spaces first
+	// Pages are scraped via GetSpacePages endpoint for selected spaces only
 
 	return nil
 }
 
+// GetSpacePages fetches pages for a specific Confluence space (public method for API)
+func (s *JiraScraper) GetSpacePages(spaceKey string) error {
+	return s.scrapeSpacePages(spaceKey)
+}
+
 // scrapeSpacePages scrapes all pages in a Confluence space
 func (s *JiraScraper) scrapeSpacePages(spaceKey string) error {
-	s.log.Info().Str("workspace", spaceKey).Msg("Fetching Confluence pages from workspace")
+	s.log.Info().Str("spaceKey", spaceKey).Msg("Starting to fetch Confluence pages from space")
 	if s.uiLog != nil {
-		s.uiLog.BroadcastUILog("info", fmt.Sprintf("Fetching pages from workspace: %s", spaceKey))
+		s.uiLog.BroadcastUILog("info", fmt.Sprintf("Fetching pages from space: %s", spaceKey))
 	}
 
 	start := 0
 	limit := 25
+	totalPages := 0
 
 	for {
 		path := fmt.Sprintf("/wiki/rest/api/content?spaceKey=%s&start=%d&limit=%d&expand=body.storage",
 			spaceKey, start, limit)
 
+		s.log.Debug().Str("path", path).Msg("Requesting pages from Confluence API")
 		data, err := s.makeRequest("GET", path)
 		if err != nil {
+			s.log.Error().Err(err).Str("spaceKey", spaceKey).Msg("Failed to fetch pages from Confluence API")
 			return err
 		}
 
@@ -645,32 +702,54 @@ func (s *JiraScraper) scrapeSpacePages(spaceKey string) error {
 		}
 
 		if len(result.Results) == 0 {
+			s.log.Info().Str("spaceKey", spaceKey).Int("totalPages", totalPages).Msg("No more pages found, finishing")
 			break
 		}
 
-		s.db.Update(func(tx *bolt.Tx) error {
+		totalPages += len(result.Results)
+		s.log.Debug().Int("batchSize", len(result.Results)).Int("totalSoFar", totalPages).Msg("Fetched page batch")
+
+		err = s.db.Update(func(tx *bolt.Tx) error {
 			bucket := tx.Bucket([]byte("confluence_pages"))
 			for _, page := range result.Results {
-				id := page["id"].(string)
-				value, _ := json.Marshal(page)
-				bucket.Put([]byte(id), value)
+				id, ok := page["id"].(string)
+				if !ok {
+					s.log.Warn().Msg("Page missing ID field")
+					continue
+				}
+				value, err := json.Marshal(page)
+				if err != nil {
+					s.log.Error().Err(err).Str("pageId", id).Msg("Failed to marshal page")
+					continue
+				}
+				if err := bucket.Put([]byte(id), value); err != nil {
+					s.log.Error().Err(err).Str("pageId", id).Msg("Failed to store page in database")
+					return err
+				}
+				s.log.Debug().Str("pageId", id).Msg("Stored page successfully")
 			}
 			return nil
 		})
+		if err != nil {
+			s.log.Error().Err(err).Msg("Database update failed")
+			return err
+		}
 
-		s.log.Info().Msgf("Stored pages (count=%d)", len(result.Results))
+		s.log.Info().Int("count", len(result.Results)).Int("total", totalPages).Msgf("Stored pages from space %s", spaceKey)
 		if s.uiLog != nil {
-			s.uiLog.BroadcastUILog("info", fmt.Sprintf("Stored %d pages from workspace %s", len(result.Results), spaceKey))
+			s.uiLog.BroadcastUILog("info", fmt.Sprintf("Stored %d pages from space %s (total: %d)", len(result.Results), spaceKey, totalPages))
 		}
 
 		start += limit
 		if len(result.Results) < limit {
+			s.log.Info().Str("spaceKey", spaceKey).Int("totalPages", totalPages).Msg("Finished fetching all pages for space")
 			break
 		}
 
 		time.Sleep(500 * time.Millisecond)
 	}
 
+	s.log.Info().Str("spaceKey", spaceKey).Int("totalPages", totalPages).Msg("Completed page scraping for space")
 	return nil
 }
 
@@ -717,7 +796,7 @@ func (s *JiraScraper) GetJiraData() (map[string]interface{}, error) {
 	return result, err
 }
 
-// ClearAllData deletes all data from all buckets (projects, issues, confluence_pages)
+// ClearAllData deletes all data from all buckets (projects, issues, confluence_spaces, confluence_pages)
 func (s *JiraScraper) ClearAllData() error {
 	s.log.Info().Msg("Clearing all data from database")
 
@@ -738,6 +817,14 @@ func (s *JiraScraper) ClearAllData() error {
 			return fmt.Errorf("failed to recreate issues bucket: %w", err)
 		}
 
+		// Delete and recreate confluence_spaces bucket
+		if err := tx.DeleteBucket([]byte("confluence_spaces")); err != nil && err != bolt.ErrBucketNotFound {
+			return fmt.Errorf("failed to delete confluence_spaces bucket: %w", err)
+		}
+		if _, err := tx.CreateBucketIfNotExists([]byte("confluence_spaces")); err != nil {
+			return fmt.Errorf("failed to recreate confluence_spaces bucket: %w", err)
+		}
+
 		// Delete and recreate confluence_pages bucket
 		if err := tx.DeleteBucket([]byte("confluence_pages")); err != nil && err != bolt.ErrBucketNotFound {
 			return fmt.Errorf("failed to delete confluence_pages bucket: %w", err)
@@ -751,13 +838,26 @@ func (s *JiraScraper) ClearAllData() error {
 	})
 }
 
-// GetConfluenceData returns all Confluence data (pages)
+// GetConfluenceData returns all Confluence data (spaces and pages)
 func (s *JiraScraper) GetConfluenceData() (map[string]interface{}, error) {
 	result := map[string]interface{}{
-		"pages": make([]map[string]interface{}, 0),
+		"spaces": make([]map[string]interface{}, 0),
+		"pages":  make([]map[string]interface{}, 0),
 	}
 
 	err := s.db.View(func(tx *bolt.Tx) error {
+		// Get all spaces
+		spaceBucket := tx.Bucket([]byte("confluence_spaces"))
+		if spaceBucket != nil {
+			spaceBucket.ForEach(func(k, v []byte) error {
+				var space map[string]interface{}
+				if err := json.Unmarshal(v, &space); err == nil {
+					result["spaces"] = append(result["spaces"].([]map[string]interface{}), space)
+				}
+				return nil
+			})
+		}
+
 		// Get all pages
 		pageBucket := tx.Bucket([]byte("confluence_pages"))
 		if pageBucket != nil {
@@ -801,6 +901,35 @@ func (s *JiraScraper) ClearProjectsCache() error {
 	s.log.Info().Msg("Projects cache cleared successfully")
 	if s.uiLog != nil {
 		s.uiLog.BroadcastUILog("info", "Projects cache cleared successfully")
+	}
+	return nil
+}
+
+// ClearSpacesCache deletes all Confluence spaces from the database
+func (s *JiraScraper) ClearSpacesCache() error {
+	s.log.Info().Msg("Clearing Confluence spaces cache...")
+	if s.uiLog != nil {
+		s.uiLog.BroadcastUILog("info", "Clearing Confluence spaces cache...")
+	}
+
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		// Delete the confluence_spaces bucket
+		if err := tx.DeleteBucket([]byte("confluence_spaces")); err != nil && err != bolt.ErrBucketNotFound {
+			return err
+		}
+		// Recreate the bucket
+		_, err := tx.CreateBucket([]byte("confluence_spaces"))
+		return err
+	})
+
+	if err != nil {
+		s.log.Error().Err(err).Msg("Failed to clear Confluence spaces cache")
+		return err
+	}
+
+	s.log.Info().Msg("Confluence spaces cache cleared successfully")
+	if s.uiLog != nil {
+		s.uiLog.BroadcastUILog("info", "Confluence spaces cache cleared successfully")
 	}
 	return nil
 }

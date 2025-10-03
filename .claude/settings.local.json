@@ -1,41 +1,42 @@
 {
   "permissions": {
     "allow": [
-      "Bash(go build:*)",
-      "Read(//c/development/aktis/aktis-collector-jira/scripts/**)",
-      "Read(//c/development/aktis/aktis-collector-jira/cmd/aktis-chrome-extension/**)",
-      "Read(//c/development/aktis/aktis-collector-jira/**)",
-      "Bash(powershell:*)",
-      "Bash(curl:*)",
-      "Bash(taskkill:*)",
-      "Bash(./bin/aktis-parser.exe:*)",
-      "Bash(go mod:*)",
-      "Read(//c/development/ternarybob/atlassian-test-data-populator/tests/**)",
-      "Bash(go test:*)",
-      "Bash(tee:*)",
-      "Bash($timestamp = Get-Date -Format \"yyyy-MM-dd_HH-mm-ss\")",
-      "Bash(Tee-Object -FilePath \"../results/api_test_$timestamp.log\")",
-      "Bash(cmd /c:*)",
-      "Bash(powershell.exe:*)",
-      "Bash(Get-MpPreference)",
-      "Bash(Select-Object -ExpandProperty ExclusionPath)",
-      "Bash(test:*)",
       "Bash(gofmt:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)",
-      "Read(//c/development/ternarybob/atlassian-test-data-populator/pages/**)",
-      "Read(//c/development/ternarybob/atlassian-test-data-populator/internal/**)",
-      "Bash(mkdir:*)",
-      "Bash(del c:developmentaktisaktis-parserinternalscraperscraper.go)",
-      "Read(//c/development/ternarybob/atlassian-test-data-populator/**)",
-      "Bash(tasklist)",
-      "Bash(findstr:*)",
-      "Bash(./aktis-parser.exe)",
-      "Bash(timeout:*)",
-      "Read(//c/development/aktis/aktis-collector/pages/**)"
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/remind-standards.js"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/go-enforce-structure.js"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/go-enforce-structure.js"
+          }
+        ]
+      }
+    ]
   }
 }
